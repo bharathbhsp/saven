@@ -31,12 +31,8 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 
 ## Push to GitHub
 
-The repo is initialized with `origin` pointing to `https://github.com/bharath/saven.git`. If the repository does not exist or you use a different username:
+Remote: `https://github.com/bharathbhsp/saven.git`. To push:
 
-1. Create a new repository on GitHub named `saven` (no need to add a README or .gitignore).  
-2. Update the remote and push:
-
-   ```bash
-   git remote set-url origin https://github.com/YOUR_USERNAME/saven.git
-   git push -u origin main
-   ```
+```bash
+git push -u origin main
+```
