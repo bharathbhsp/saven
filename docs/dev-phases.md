@@ -23,7 +23,7 @@ This document describes the development process for Saven, aligned with [REQUIRE
 - Create API Gateway (HTTP API), Lambda placeholder or minimal function, and integration.
 - Create S3 buckets (app hosting, export artifacts) and CloudFront distribution with OAI.
 - Create IAM roles for Lambda (DynamoDB, S3, Parameter Store, CloudWatch).
-- Add Parameter Store parameters (SecureString) for Google API credentials and Telegram bot token (values can be placeholders until Phase 6 and Phase 7).
+- Add Parameter Store parameters (SecureString) for Telegram bot token (values can be placeholders until Phase 6).
 - Document outputs (API URL, Cognito User Pool ID/Client ID, bucket names, CloudFront URL).
 
 **Done when:** `terraform apply` succeeds; API Gateway and Cognito endpoints are reachable; Lambda can read/write DynamoDB and S3.
@@ -145,30 +145,7 @@ This document describes the development process for Saven, aligned with [REQUIRE
 
 ---
 
-## Phase 6 — Google Sheets Integration
-
-**Goal:** Selected Google Sheet(s) can be updated with spend data (by group, user, or date range).
-
-**Prerequisites:** Phase 0 (Parameter Store); Phase 3 (APIs and data).
-
-**Deliverables:**
-- Google API credentials stored in Parameter Store (SecureString).
-- Lambda that reads from DynamoDB/Aurora and writes to Google Sheets API (service account or OAuth).
-- Sync triggered on-demand (API + UI) and/or on a schedule (EventBridge rule → Lambda).
-- Configuration: which sheet(s) to update per group (or global); mapping of columns to app data.
-
-**Key tasks:**
-- Obtain Google API credentials (service account JSON or OAuth client); store in Parameter Store.
-- Implement Lambda: fetch credentials from Parameter Store; fetch transactions (and optional aggregates) for the requested group/range; call Google Sheets API to update cells or append rows.
-- Add API endpoint (and optional UI) to "sync now" for a group.
-- Optionally add EventBridge Scheduler rule to run sync Lambda on a schedule (e.g. daily).
-- Document how to link a sheet to a group (sheet ID, tab name, etc.).
-
-**Done when:** On-demand and/or scheduled sync updates the configured Google Sheet(s) with the correct data; credentials are not hardcoded.
-
----
-
-## Phase 7 — Telegram Bot
+## Phase 6 — Telegram Bot
 
 **Goal:** Users can record spend and view summaries via a Telegram bot after linking their Telegram identity to an app user; optional free-text entry via NLP (mini-LLM) to extract transaction data.
 
@@ -194,7 +171,7 @@ This document describes the development process for Saven, aligned with [REQUIRE
 
 ---
 
-## Phase 8 — Multi-User Polish (Permissions, Audit)
+## Phase 7 — Multi-User Polish (Permissions, Audit)
 
 **Goal:** Clear group membership, permissions, and audit trail so multiple people can safely edit and record.
 
@@ -226,9 +203,8 @@ This document describes the development process for Saven, aligned with [REQUIRE
 | 3     | CRUD APIs                | 0, 1, 2      | Full APIs for transactions, categories, groups    |
 | 4     | UI                       | 0, 2, 3      | Login, dashboard, record, list/filter             |
 | 5     | Exports (CSV, PDF)       | 0, 1, 3      | Export by period/group/category                   |
-| 6     | Google Sheets            | 0, 3         | Sync to sheet on-demand and/or scheduled          |
-| 7     | Telegram bot (+ optional NLP) | 0, 2, 3 | Record spend and view summaries; mini-LLM NLP for free-text extraction |
-| 8     | Multi-user polish        | 1–4          | Permissions and audit fields enforced and visible |
+| 6     | Telegram bot (+ optional NLP) | 0, 2, 3 | Record spend and view summaries; mini-LLM NLP for free-text extraction |
+| 7     | Multi-user polish        | 1–4          | Permissions and audit fields enforced and visible |
 
 ---
 
@@ -236,5 +212,5 @@ This document describes the development process for Saven, aligned with [REQUIRE
 
 - **Testing:** Add unit tests for Lambda handlers and integration tests for API endpoints as each phase is implemented; run tests in CI (e.g. CodeBuild or GitHub Actions).
 - **Environments:** Use Terraform workspaces or separate `tfvars` for dev/staging/prod; keep production Parameter Store and credentials separate.
-- **Open decisions:** Resolve [Open Decisions in REQUIREMENTS.md](REQUIREMENTS.md#open-decisions-affect-scope--cost) (transaction source, currency, recurring, budgets, Google Sheets layout) before or during the phases they affect (e.g. Phase 1 for schema, Phase 6 for sheet layout).
+- **Open decisions:** Resolve [Open Decisions in REQUIREMENTS.md](REQUIREMENTS.md#open-decisions-affect-scope--cost) (transaction source, currency, recurring, budgets) before or during the phases they affect (e.g. Phase 1 for schema).
 - **Documentation:** Keep API contract (paths, request/response shapes) and deployment steps updated as you complete each phase.

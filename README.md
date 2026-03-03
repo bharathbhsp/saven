@@ -29,11 +29,3 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 1. Review [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) and [docs/dev-phases.md](docs/dev-phases.md).  
 2. Set up AWS and Terraform; provision infrastructure (Phase 0).  
 3. Follow the phases in order to implement the app.
-
-## Push to GitHub
-
-Remote: `https://github.com/bharathbhsp/saven.git`. To push:
-
-```bash
-git push -u origin main
-```
