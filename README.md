@@ -22,6 +22,7 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 
 - [Requirements & architecture](docs/REQUIREMENTS.md) — Functional and non-functional requirements, AWS services, costs, file manifest  
 - [Development phases](docs/dev-phases.md) — Phased development process (infra → data model → auth → APIs → UI → exports → Google Sheets → Telegram bot → multi-user polish)  
+- [Local testing strategy](docs/local-testing.md) — How to test the app locally (deployed API, Lambda invoke, local server, DynamoDB Local)  
 
 ## Getting started
 

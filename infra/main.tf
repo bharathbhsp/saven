@@ -30,6 +30,7 @@ module "api" {
   project_name       = var.project_name
   environment        = var.environment
   name_prefix        = local.name_prefix
+  aws_region         = var.aws_region
   cognito_pool_arn   = module.auth.user_pool_arn
   cognito_pool_id    = module.auth.user_pool_id
   cognito_client_id  = module.auth.app_client_id

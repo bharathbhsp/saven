@@ -1,0 +1,10 @@
+{
+  "requestContext": {
+    "http": { "method": "GET", "path": "/groups" },
+    "authorizer": {
+      "jwt": {
+        "claims": { "sub": "REPLACE_WITH_COGNITO_SUB" }
+      }
+    }
+  }
+}

@@ -8,13 +8,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-- Phase 2 — Auth (Cognito + API protection)
-- Phase 3 — CRUD APIs
 - Phase 4 — UI (login, dashboard, record, list/filter)
 - Phase 5 — Exports (CSV, PDF)
 - Phase 6 — Google Sheets integration
 - Phase 7 — Telegram bot (+ optional NLP)
 - Phase 8 — Multi-user polish (permissions, audit)
+
+---
+
+## [0.2.0] — Phase 2 & Phase 3
+
+### Phase 2 — Auth (Cognito + API Protection)
+
+- API Gateway JWT authorizer (Cognito as issuer); `Authorization: Bearer <id_token>` required for all routes except health
+- Public **GET /health** route (no auth) for health checks
+- Identity passed to Lambda as `requestContext.authorizer.jwt.claims.sub` (userId for authorization and audit)
+- Unauthenticated requests to protected routes return 401 from API Gateway
+
+### Phase 3 — CRUD APIs
+
+- Single Lambda router (`infra/modules/api/src/`) with handlers for groups, members, categories, transactions
+- **Groups:** GET list (for user), POST create, GET by id, PATCH update
+- **Group members:** GET list, POST add, DELETE remove
+- **Categories:** GET list (GLOBAL + group), POST create, GET by id, PATCH update/archive, DELETE (archive)
+- **Transactions:** GET list (query: day, month, or startDate/endDate), POST create, GET by id (?date=), PATCH update, DELETE
+- Group membership enforced: only members can read/write group data (403 otherwise)
+- Request validation (required fields, date YYYY-MM-DD, amount number); consistent error JSON `{ error, message }`
+- API contract documented in [docs/api.md](docs/api.md)
+
+### Done when (Phase 2 & 3)
+
+- User can call protected endpoints with Cognito JWT; Lambda receives caller identity.
+- All CRUD operations work for transactions, categories, groups, and members; list by day/month/range works; only authorized users can modify data.
 
 ---
 
@@ -48,5 +73,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/your-org/saven/compare/v0.1.0...HEAD  
+[Unreleased]: https://github.com/your-org/saven/compare/v0.2.0...HEAD  
+[0.2.0]: https://github.com/your-org/saven/compare/v0.1.0...v0.2.0  
 [0.1.0]: https://github.com/your-org/saven/releases/tag/v0.1.0

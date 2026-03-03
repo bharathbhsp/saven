@@ -22,6 +22,11 @@ variable "cognito_client_id" {
   type = string
 }
 
+variable "aws_region" {
+  type    = string
+  default = "ap-south-2"
+}
+
 variable "dynamodb_tables" {
   type = object({
     groups        = string

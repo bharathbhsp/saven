@@ -12,7 +12,7 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 
 - **Auth:** Cognito user pool, app client, hosted UI domain; optional **Google (Gmail) login** when OAuth credentials are set
 - **Data (Phase 1):** DynamoDB tables (groups, group_members, categories, transactions) with GSIs; schema and access patterns in [../docs/data-model.md](../docs/data-model.md)
-- **API:** API Gateway HTTP API, Lambda placeholder, IAM roles (least-privilege log group), CloudWatch log group
+- **API (Phase 2 & 3):** API Gateway HTTP API with JWT authorizer (Cognito), Lambda CRUD API (groups, members, categories, transactions), IAM, CloudWatch log group. See [../docs/api.md](../docs/api.md).
 - **Frontend:** S3 buckets (app, exports), CloudFront distribution with OAI; exports bucket lifecycle (7-day expiration)
 - **Secrets:** SSM Parameter Store placeholders (Google credentials, Telegram bot token)
 

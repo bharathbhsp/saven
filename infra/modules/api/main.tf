@@ -1,4 +1,4 @@
-# API Gateway HTTP API + Lambda placeholder
+# API Gateway HTTP API + Lambda (Phase 2 JWT auth, Phase 3 CRUD)
 
 data "aws_caller_identity" "current" {}
 
@@ -76,11 +76,11 @@ resource "aws_iam_role_policy" "lambda_dynamodb_index" {
   })
 }
 
-# Lambda placeholder package
-data "archive_file" "lambda_placeholder" {
+# Lambda package (Phase 3 — CRUD API)
+data "archive_file" "lambda_api" {
   type        = "zip"
-  source_file = "${path.module}/placeholder/handler.js"
-  output_path = "${path.module}/placeholder/placeholder.zip"
+  source_dir  = "${path.module}/src"
+  output_path = "${path.module}/build/api.zip"
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -89,18 +89,21 @@ resource "aws_cloudwatch_log_group" "lambda" {
 }
 
 resource "aws_lambda_function" "api" {
-  filename         = data.archive_file.lambda_placeholder.output_path
+  filename         = data.archive_file.lambda_api.output_path
   function_name    = "${var.name_prefix}-api"
   role             = aws_iam_role.lambda.arn
-  handler          = "handler.handler"
-  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
+  handler          = "index.handler"
+  source_code_hash = data.archive_file.lambda_api.output_base64sha256
   runtime          = "nodejs20.x"
   timeout          = 30
   memory_size      = 256
 
   environment {
     variables = {
-      NODE_OPTIONS = "--enable-source-maps"
+      GROUPS_TABLE        = var.dynamodb_tables.groups
+      GROUP_MEMBERS_TABLE = var.dynamodb_tables.group_members
+      CATEGORIES_TABLE    = var.dynamodb_tables.categories
+      TRANSACTIONS_TABLE  = var.dynamodb_tables.transactions
     }
   }
 
@@ -122,6 +125,19 @@ resource "aws_apigatewayv2_api" "main" {
   }
 }
 
+# JWT authorizer (Phase 2) — Cognito as issuer; identity passed to Lambda as requestContext.authorizer.jwt.claims
+resource "aws_apigatewayv2_authorizer" "jwt" {
+  api_id           = aws_apigatewayv2_api.main.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name            = "${var.name_prefix}-jwt"
+
+  jwt_configuration {
+    audience = [var.cognito_client_id]
+    issuer   = "https://cognito-idp.${var.aws_region}.amazonaws.com/${var.cognito_pool_id}"
+  }
+}
+
 resource "aws_apigatewayv2_integration" "lambda" {
   api_id                 = aws_apigatewayv2_api.main.id
   integration_type       = "AWS_PROXY"
@@ -130,10 +146,20 @@ resource "aws_apigatewayv2_integration" "lambda" {
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_route" "any" {
+# Public route: health check (no auth)
+resource "aws_apigatewayv2_route" "health" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "$default"
+  route_key = "GET /health"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# All other routes require JWT (Phase 2)
+resource "aws_apigatewayv2_route" "default" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "$default"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
 resource "aws_apigatewayv2_stage" "default" {
