@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and set as needed.
+# For secrets (e.g. google_client_secret) prefer: TF_VAR_google_client_secret=... when running terraform.
+
+aws_region     = "ap-south-2"
+project_name   = "saven"
+environment    = "dev"
+cognito_domain = "saven"  # Must be globally unique across AWS
+
+# Gmail / Google login (optional). Leave empty or omit to use only Cognito email sign-in.
+# google_client_id     = "your-google-oauth-client-id.apps.googleusercontent.com"
+# google_client_secret = "your-google-oauth-client-secret"

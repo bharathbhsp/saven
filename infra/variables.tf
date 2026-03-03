@@ -1,0 +1,38 @@
+variable "aws_region" {
+  description = "AWS region for all resources"
+  type        = string
+  default     = "ap-south-2"
+}
+
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "saven"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "cognito_domain" {
+  description = "Cognito hosted UI domain prefix (must be unique across AWS)"
+  type        = string
+  default     = "saven-auth"
+}
+
+# Gmail / Google login (optional). Create OAuth 2.0 credentials in Google Cloud Console.
+variable "google_client_id" {
+  description = "Google OAuth 2.0 client ID for Gmail login (leave empty to disable)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth 2.0 client secret for Gmail login (required if google_client_id is set)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

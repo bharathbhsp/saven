@@ -31,6 +31,10 @@ Thumbs.db
 *.tfstate.*
 .terraform.lock.hcl
 *.tfvars.json
+terraform.tfvars
+*.tfvars
+*.tfplan
+tfplan
 
 # Logs and temp
 *.log
