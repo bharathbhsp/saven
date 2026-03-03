@@ -28,3 +28,15 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 1. Review [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) and [docs/dev-phases.md](docs/dev-phases.md).  
 2. Set up AWS and Terraform; provision infrastructure (Phase 0).  
 3. Follow the phases in order to implement the app.
+
+## Push to GitHub
+
+The repo is initialized with `origin` pointing to `https://github.com/bharath/saven.git`. If the repository does not exist or you use a different username:
+
+1. Create a new repository on GitHub named `saven` (no need to add a README or .gitignore).  
+2. Update the remote and push:
+
+   ```bash
+   git remote set-url origin https://github.com/YOUR_USERNAME/saven.git
+   git push -u origin main
+   ```
