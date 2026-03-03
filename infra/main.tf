@@ -8,12 +8,14 @@ locals {
 module "auth" {
   source = "./modules/auth"
 
-  project_name         = var.project_name
-  environment          = var.environment
-  name_prefix          = local.name_prefix
-  cognito_domain       = var.cognito_domain
-  google_client_id     = var.google_client_id
-  google_client_secret = var.google_client_secret
+  project_name          = var.project_name
+  environment           = var.environment
+  name_prefix           = local.name_prefix
+  cognito_domain        = var.cognito_domain
+  google_client_id      = var.google_client_id
+  google_client_secret  = var.google_client_secret
+  extra_callback_urls   = var.extra_callback_urls
+  extra_logout_urls     = var.extra_logout_urls
 }
 
 module "data" {

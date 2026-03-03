@@ -9,3 +9,7 @@ cognito_domain = "saven"  # Must be globally unique across AWS
 # Gmail / Google login (optional). Leave empty or omit to use only Cognito email sign-in.
 # google_client_id     = "your-google-oauth-client-id.apps.googleusercontent.com"
 # google_client_secret = "your-google-oauth-client-secret"
+
+# Production frontend URL(s) so Cognito login redirect works (avoids redirect_mismatch).
+# extra_callback_urls = ["https://d123abc.cloudfront.net/"]
+# extra_logout_urls   = ["https://d123abc.cloudfront.net/"]

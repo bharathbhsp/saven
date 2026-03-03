@@ -41,7 +41,7 @@ terraform output -json | jq -r '
    | `VITE_COGNITO_DOMAIN` | `cognito_domain` (domain prefix only) | `saven-auth-prod` |
    | `VITE_AWS_REGION` | Same region as Terraform `aws_region` | `ap-south-2` |
 
-**Cognito callback:** For local dev, `http://localhost:5173/` is already allowed. For production, add your CloudFront URL to Cognito callback URLs.
+**Cognito callback:** Allowed URLs include `http://localhost:5173/` and `http://127.0.0.1:5173/`. If you see **redirect_mismatch** when signing in, the origin in your browser must match one of these (e.g. open the app at `http://localhost:5173`, not a different host/port). For production, set `extra_callback_urls` in Terraform (e.g. `["https://your-cloudfront-url.net/"]`) and re-apply.
 
 ## Run locally
 

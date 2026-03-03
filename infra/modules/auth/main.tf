@@ -97,14 +97,19 @@ resource "aws_cognito_user_pool_client" "app" {
   # Include Google when IdP is created so users can sign in with Gmail
   supported_identity_providers = length(aws_cognito_identity_provider.google) > 0 ? ["COGNITO", "Google"] : ["COGNITO"]
 
-  callback_urls = [
+  # Must include the exact origin the frontend uses (e.g. http://localhost:5173/ or http://127.0.0.1:5173/)
+  callback_urls = concat([
     "http://localhost:3000/",
-    "http://localhost:5173/"
-  ]
-  logout_urls = [
+    "http://localhost:5173/",
+    "http://127.0.0.1:5173/",
+    "http://127.0.0.1:3000/"
+  ], var.extra_callback_urls)
+  logout_urls = concat([
     "http://localhost:3000/",
-    "http://localhost:5173/"
-  ]
+    "http://localhost:5173/",
+    "http://127.0.0.1:5173/",
+    "http://127.0.0.1:3000/"
+  ], var.extra_logout_urls)
 
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code", "implicit"]

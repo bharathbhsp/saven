@@ -36,3 +36,16 @@ variable "google_client_secret" {
   default     = ""
   sensitive   = true
 }
+
+# Add production frontend URLs so Cognito Hosted UI can redirect back (avoids redirect_mismatch)
+variable "extra_callback_urls" {
+  description = "Additional Cognito callback URLs, e.g. [\"https://d123.cloudfront.net/\"]"
+  type        = list(string)
+  default     = []
+}
+
+variable "extra_logout_urls" {
+  description = "Additional Cognito logout redirect URLs"
+  type        = list(string)
+  default     = []
+}

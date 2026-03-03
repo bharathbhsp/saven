@@ -25,3 +25,16 @@ variable "google_client_secret" {
   default   = ""
   sensitive = true
 }
+
+# Add production URLs (e.g. CloudFront) so Hosted UI can redirect back after login
+variable "extra_callback_urls" {
+  type        = list(string)
+  default     = []
+  description = "Additional Cognito callback URLs (e.g. https://your-cloudfront-url.net/)"
+}
+
+variable "extra_logout_urls" {
+  type        = list(string)
+  default     = []
+  description = "Additional Cognito logout redirect URLs"
+}

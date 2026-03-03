@@ -47,19 +47,19 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  // Use app root as redirect so it matches Cognito callback URLs (e.g. http://localhost:5173/)
+  const redirectUri = encodeURIComponent(window.location.origin + "/");
   const login = useCallback(() => {
-    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
     const url = `https://${COGNITO_DOMAIN}.auth.${REGION}.amazoncognito.com/login?client_id=${CLIENT_ID}&response_type=token&scope=openid+email+profile&redirect_uri=${redirectUri}`;
     window.location.href = url;
-  }, []);
+  }, [redirectUri]);
 
   const logout = useCallback(() => {
     setStoredToken(null);
     setToken(null);
-    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
     const url = `https://${COGNITO_DOMAIN}.auth.${REGION}.amazoncognito.com/logout?client_id=${CLIENT_ID}&logout_uri=${redirectUri}`;
     window.location.href = url;
-  }, []);
+  }, [redirectUri]);
 
   const value = { token, loading, login, logout, isAuthenticated: !!token };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -153,6 +153,19 @@ resource "aws_apigatewayv2_route" "health" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# CORS preflight: OPTIONS without JWT so browser preflight succeeds (fixes CORS from localhost)
+resource "aws_apigatewayv2_route" "options_proxy" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "options_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # All other routes require JWT (Phase 2)
 resource "aws_apigatewayv2_route" "default" {
   api_id             = aws_apigatewayv2_api.main.id
