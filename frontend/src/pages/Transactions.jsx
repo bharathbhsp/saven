@@ -12,6 +12,9 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(a.href);
 }
 
+const inputClass =
+  "px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
 export default function Transactions() {
   const { token } = useAuth();
   const [groups, setGroups] = useState([]);
@@ -112,80 +115,113 @@ export default function Transactions() {
   }
 
   return (
-    <div className="page">
-      <h1>Transactions</h1>
+    <div>
+      <h1 className="text-xl font-semibold text-foreground mb-6">Transactions</h1>
+
       {groups.length === 0 ? (
-        <p>No groups.</p>
+        <p className="text-muted-foreground">No groups.</p>
       ) : (
-        <>
-          <div className="filters">
-            <label>
-              Group
-              <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Filter
-              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                <option value="day">Day</option>
-                <option value="month">Month</option>
-                <option value="range">Date range</option>
-              </select>
-            </label>
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className={inputClass}
+            >
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className={inputClass}
+            >
+              <option value="day">Day</option>
+              <option value="month">Month</option>
+              <option value="range">Date range</option>
+            </select>
             {filter === "day" && (
-              <label>Day <input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></label>
+              <input
+                type="date"
+                value={day}
+                onChange={(e) => setDay(e.target.value)}
+                className={inputClass}
+              />
             )}
             {filter === "month" && (
-              <label>Month <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className={inputClass}
+              />
             )}
             {filter === "range" && (
               <>
-                <label>From <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
-                <label>To <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={inputClass}
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={inputClass}
+                />
               </>
             )}
           </div>
-          {error && <div className="error">{error}</div>}
-          <div className="export-actions">
+
+          {error && (
+            <div className="px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="btn-secondary"
               disabled={exporting || (filter === "range" && (!startDate || !endDate))}
               onClick={() => handleExport("csv")}
+              className="py-2 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 disabled:opacity-60 transition-colors"
             >
               {exporting === "csv" ? "…" : "Export CSV"}
             </button>
             <button
               type="button"
-              className="btn-secondary"
               disabled={exporting || (filter === "range" && (!startDate || !endDate))}
               onClick={() => handleExport("pdf")}
+              className="py-2 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 disabled:opacity-60 transition-colors"
             >
               {exporting === "pdf" ? "…" : "Export PDF"}
             </button>
           </div>
+
           {loading ? (
-            <p>Loading…</p>
+            <p className="text-muted-foreground text-sm">Loading…</p>
           ) : (
             <>
-              <p className="total">Total: {total.toFixed(2)}</p>
-              <ul className="transaction-list">
-                {transactions.map((t) => (
-                  <li key={t.sk || t.transactionId}>
-                    <span className="date">{t.date}</span>
-                    <span className="amount">{t.amount}</span>
-                    <span className="cat">{t.categoryId}</span>
-                    {t.note && <span className="note">{t.note}</span>}
-                  </li>
-                ))}
-              </ul>
-              {transactions.length === 0 && <p>No transactions for this filter.</p>}
+              <p className="text-lg font-medium text-foreground">Total: {total.toFixed(2)}</p>
+              {transactions.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No transactions for this filter.</p>
+              ) : (
+                <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-card">
+                  {transactions.map((t) => (
+                    <li key={t.sk || t.transactionId} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                      <span className="text-muted-foreground w-24">{t.date}</span>
+                      <span className="font-medium text-foreground min-w-[4rem]">{t.amount}</span>
+                      <span className="text-muted-foreground">{t.categoryId}</span>
+                      {t.note && <span className="text-muted-foreground/80 truncate max-w-[12rem]">{t.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

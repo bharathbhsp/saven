@@ -99,6 +99,8 @@ exports.handler = async (event) => {
   const query = parseQuery(event);
 
   try {
+    const db = require("./db");
+    if (typeof db.ensureTables === "function") db.ensureTables();
     if (
       route.route === "transactions.list" ||
       route.route === "transactions.get" ||
@@ -110,7 +112,11 @@ exports.handler = async (event) => {
     }
     return await handler(route.params, body, userId);
   } catch (err) {
-    console.error(route.route, err);
-    return json(500, { error: "InternalServerError", message: "An error occurred" });
+    console.error(route.route, err.message || err);
+    if (err.stack) console.error(err.stack);
+    const msg = err.message && /Missing Lambda env|TableName|ResourceNotFoundException|AccessDenied/i.test(err.message)
+      ? err.message
+      : "An error occurred";
+    return json(500, { error: "InternalServerError", message: msg });
   }
 };

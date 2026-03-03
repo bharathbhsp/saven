@@ -8,7 +8,13 @@ import Transactions from "./pages/Transactions";
 
 function Protected({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="loading">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-background">
+        Loading…
+      </div>
+    );
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }

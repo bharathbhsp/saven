@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
+const inputClass =
+  "w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
+const labelClass = "text-sm font-medium text-foreground block mb-1";
+
 export default function AddTransaction() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -75,13 +79,15 @@ export default function AddTransaction() {
   }
 
   return (
-    <div className="page">
-      <h1>Add transaction</h1>
-      <form onSubmit={handleSubmit} className="form">
-        {error && <div className="error">{error}</div>}
+    <div>
+      <h1 className="text-xl font-semibold text-foreground mb-6">Add transaction</h1>
+      <form onSubmit={handleSubmit} className="max-w-sm space-y-4">
+        {error && (
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
+        )}
         <label>
-          Group
-          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
+          <span className={labelClass}>Group</span>
+          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} required className={inputClass}>
             <option value="">Select group</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
@@ -89,27 +95,16 @@ export default function AddTransaction() {
           </select>
         </label>
         <label>
-          Amount
-          <input
-            type="number"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-          />
+          <span className={labelClass}>Amount</span>
+          <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputClass} />
         </label>
         <label>
-          Date
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
+          <span className={labelClass}>Date</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
         </label>
         <label>
-          Category
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
+          <span className={labelClass}>Category</span>
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required className={inputClass}>
             <option value="">Select category</option>
             {categories.map((c) => (
               <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
@@ -117,15 +112,10 @@ export default function AddTransaction() {
           </select>
         </label>
         <label>
-          Note (optional)
-          <input
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Optional note"
-          />
+          <span className={labelClass}>Note (optional)</span>
+          <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note" className={inputClass} />
         </label>
-        <button type="submit" className="btn-primary" disabled={loading}>
+        <button type="submit" disabled={loading} className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity">
           {loading ? "Adding…" : "Add"}
         </button>
       </form>

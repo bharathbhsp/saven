@@ -1,5 +1,24 @@
-const AWS = require("aws-sdk");
-const doc = new AWS.DynamoDB.DocumentClient();
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  DeleteCommand,
+} = require("@aws-sdk/lib-dynamodb");
+
+const client = new DynamoDBClient({ region: process.env.AWS_REGION });
+const ddb = DynamoDBDocumentClient.from(client);
+
+/** DocumentClient-style wrapper so handlers can keep using doc.get().promise(), etc. */
+const doc = {
+  get: (params) => ({ promise: () => ddb.send(new GetCommand(params)) }),
+  put: (params) => ({ promise: () => ddb.send(new PutCommand(params)) }),
+  query: (params) => ({ promise: () => ddb.send(new QueryCommand(params)) }),
+  update: (params) => ({ promise: () => ddb.send(new UpdateCommand(params)) }),
+  delete: (params) => ({ promise: () => ddb.send(new DeleteCommand(params)) }),
+};
 
 const TABLES = {
   groups: process.env.GROUPS_TABLE,
@@ -7,6 +26,13 @@ const TABLES = {
   categories: process.env.CATEGORIES_TABLE,
   transactions: process.env.TRANSACTIONS_TABLE,
 };
+
+function ensureTables() {
+  const missing = Object.entries(TABLES).filter(([, v]) => !v || typeof v !== "string").map(([k]) => k);
+  if (missing.length) {
+    throw new Error("Missing Lambda env: " + missing.join(", ") + ". Set GROUPS_TABLE, GROUP_MEMBERS_TABLE, CATEGORIES_TABLE, TRANSACTIONS_TABLE.");
+  }
+}
 
 async function getGroupMember(groupId, userId) {
   const r = await doc.get({
@@ -33,4 +59,4 @@ function uuid() {
   });
 }
 
-module.exports = { doc, TABLES, getGroupMember, requireMember, now, uuid };
+module.exports = { doc, TABLES, getGroupMember, requireMember, now, uuid, ensureTables };
