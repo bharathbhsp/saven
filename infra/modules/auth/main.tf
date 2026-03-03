@@ -40,6 +40,11 @@ resource "aws_cognito_user_pool" "main" {
   tags = {
     Name = "${var.name_prefix}-user-pool"
   }
+
+  # Cognito does not allow modifying or removing schema attributes after creation.
+  lifecycle {
+    ignore_changes = [schema]
+  }
 }
 
 resource "aws_cognito_user_pool_domain" "main" {

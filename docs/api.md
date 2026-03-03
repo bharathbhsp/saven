@@ -1,4 +1,4 @@
-# Saven — API Contract (Phase 2 & 3)
+# Saven — API Contract (Phases 2–5)
 
 Base URL: API Gateway HTTP API URL (from Terraform output `api_gateway_url`). All routes except **GET /health** require a valid Cognito JWT in the `Authorization: Bearer <id_token>` header.
 
@@ -83,3 +83,14 @@ All errors return JSON:
 - **Transactions:** `{ "transaction" }` or `{ "transactions": [] }`
 
 All create/update responses return the created or updated resource object.
+
+---
+
+## Exports (Phase 5)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /groups/:groupId/export/csv | Export transactions as CSV. Query: `startDate`, `endDate` (YYYY-MM-DD), optional `categoryId` |
+| GET | /groups/:groupId/export/pdf | Export transactions as PDF report. Query: same as CSV |
+
+Returns file download (`Content-Disposition: attachment`). CSV: `text/csv`; PDF: `application/pdf`. Requires group membership.

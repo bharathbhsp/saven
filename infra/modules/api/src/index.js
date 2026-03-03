@@ -59,6 +59,7 @@ exports.handler = async (event) => {
   const categories = require("./handlers/categories");
   const transactions = require("./handlers/transactions");
 
+  const exportHandler = require("./handlers/export");
   const HANDLERS = {
     "groups.list": (p, b, uid) => groups.list(p, b, uid),
     "groups.create": (p, b, uid) => groups.create(p, b, uid),
@@ -77,6 +78,8 @@ exports.handler = async (event) => {
     "transactions.get": (p, b, uid, q) => transactions.get(p, b, uid, q),
     "transactions.update": (p, b, uid) => transactions.update(p, b, uid),
     "transactions.delete": (p, b, uid, q) => transactions.delete(p, b, uid, q),
+    "export.csv": (p, b, uid, q) => exportHandler.csv(p, b, uid, q),
+    "export.pdf": (p, b, uid, q) => exportHandler.pdf(p, b, uid, q),
   };
 
   const handler = HANDLERS[route.route];
@@ -86,7 +89,13 @@ exports.handler = async (event) => {
   const query = parseQuery(event);
 
   try {
-    if (route.route === "transactions.list" || route.route === "transactions.get" || route.route === "transactions.delete") {
+    if (
+      route.route === "transactions.list" ||
+      route.route === "transactions.get" ||
+      route.route === "transactions.delete" ||
+      route.route === "export.csv" ||
+      route.route === "export.pdf"
+    ) {
       return await handler(route.params, body, userId, query);
     }
     return await handler(route.params, body, userId);

@@ -57,6 +57,12 @@ function match(method, path) {
         };
       }
     }
+    // /groups/:groupId/export/csv | /groups/:groupId/export/pdf (Phase 5)
+    if (segments[2] === "export" && segments.length === 4 && method === "GET") {
+      const format = segments[3];
+      if (format === "csv") return { route: "export.csv", params: { groupId } };
+      if (format === "pdf") return { route: "export.pdf", params: { groupId } };
+    }
   }
   return null;
 }

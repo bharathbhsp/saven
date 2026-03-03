@@ -1,6 +1,6 @@
 # Saven — Local Testing Strategy
 
-Ways to test the app locally. The backend is a **Node.js Lambda** behind API Gateway; the **UI is not in repo yet** (Phase 4). Use one or more of the approaches below depending on what you’re testing.
+Ways to test the app locally. The backend is a **Node.js Lambda** behind API Gateway; the **UI** is in `frontend/` (Phase 4). Use one or more of the approaches below depending on what you’re testing.
 
 ---
 
@@ -50,6 +50,12 @@ Ways to test the app locally. The backend is a **Node.js Lambda** behind API Gat
   ```
 
 Use Postman/Insomnia with the same base URL and `Authorization: Bearer <id_token>` for all non-health routes.
+
+### Run the frontend locally (Phase 4)
+
+1. From repo root, create `frontend/.env` with the same outputs (see `frontend/.env.example`).
+2. Run `cd frontend && npm install && npm run dev`.
+3. Open http://localhost:5173 — Sign in uses Cognito Hosted UI; callback is already allowed for `http://localhost:5173/`.
 
 ---
 

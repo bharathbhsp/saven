@@ -27,4 +27,15 @@ function notFound(message) {
   return error(404, "NotFound", message || "Resource not found");
 }
 
-module.exports = { json, error, badRequest, unauthorized, forbidden, notFound };
+/** Return custom headers + body (CSV string or PDF buffer). For Buffer, body is base64-encoded. */
+function raw(statusCode, body, headers = {}) {
+  const isBase64 = Buffer.isBuffer(body);
+  return {
+    statusCode,
+    headers: { "Access-Control-Allow-Origin": "*", ...headers },
+    body: isBase64 ? body.toString("base64") : body,
+    isBase64Encoded: isBase64,
+  };
+}
+
+module.exports = { json, error, badRequest, unauthorized, forbidden, notFound, raw };

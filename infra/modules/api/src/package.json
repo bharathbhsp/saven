@@ -1,0 +1,9 @@
+{
+  "name": "saven-api",
+  "version": "1.0.0",
+  "description": "Saven Lambda API",
+  "private": true,
+  "dependencies": {
+    "pdfkit": "^0.15.0"
+  }
+}

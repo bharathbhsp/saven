@@ -8,11 +8,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-- Phase 4 — UI (login, dashboard, record, list/filter)
-- Phase 5 — Exports (CSV, PDF)
 - Phase 6 — Google Sheets integration
 - Phase 7 — Telegram bot (+ optional NLP)
 - Phase 8 — Multi-user polish (permissions, audit)
+
+---
+
+## [0.3.0] — Phase 4 & Phase 5
+
+### Phase 4 — UI (Login, Dashboard, Record, List/Filter)
+
+- **Frontend:** React (Vite) app in `frontend/`; build output `dist/` for S3 + CloudFront
+- **Auth:** Cognito Hosted UI; token from redirect hash stored in sessionStorage; API client sends `Authorization: Bearer <id_token>`
+- **Pages:** Login (redirect to Hosted UI), Dashboard (group selector, month total, recent transactions), Add transaction (form: group, amount, date, category, note), Transactions (filter by day/month/range, group selector)
+- **Env:** `VITE_API_URL`, `VITE_COGNITO_*`, `VITE_AWS_REGION`; see `frontend/.env.example`
+- **Deploy:** `npm run build` then sync `dist/` to S3; optional CloudFront invalidation; script `scripts/deploy-frontend.sh`
+
+### Phase 5 — Exports (CSV, PDF)
+
+- **API:** GET `/groups/:groupId/export/csv` and `/groups/:groupId/export/pdf` with query `startDate`, `endDate`, optional `categoryId`; same auth and group membership as transactions
+- **CSV:** In-memory generation; `Content-Disposition: attachment`; columns Date, Amount, Category ID, Note
+- **PDF:** PDFKit in Lambda; table report (date, amount, category, note); optional dependency (`npm install` in `infra/modules/api/src` for PDF; CSV works without it)
+- **UI:** Transactions page has "Export CSV" and "Export PDF" using current filter (day/month/range)
+
+### Done when (Phase 4 & 5)
+
+- User can log in, add a transaction, see transactions filtered by day/month/range and by group; user can export CSV and PDF for chosen period/group.
 
 ---
 
@@ -73,6 +94,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-[Unreleased]: https://github.com/your-org/saven/compare/v0.2.0...HEAD  
+[Unreleased]: https://github.com/your-org/saven/compare/v0.3.0...HEAD  
+[0.3.0]: https://github.com/your-org/saven/compare/v0.2.0...v0.3.0  
 [0.2.0]: https://github.com/your-org/saven/compare/v0.1.0...v0.2.0  
 [0.1.0]: https://github.com/your-org/saven/releases/tag/v0.1.0
