@@ -10,7 +10,7 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 
 ## What gets created
 
-- **Auth:** Cognito user pool, app client, hosted UI domain; optional **Google (Gmail) login** when OAuth credentials are set
+- **Auth:** Cognito user pool (invite-only: no self sign-up), app client, hosted UI domain; optional **Google (Gmail) login** when OAuth credentials are set
 - **Data (Phase 1):** DynamoDB tables (groups, group_members, categories, transactions) with GSIs; schema and access patterns in [../docs/data-model.md](../docs/data-model.md)
 - **Frontend (Phase 4):** Build with `cd ../frontend && npm ci && npm run build`; sync `frontend/dist/` to the app bucket. See [../frontend/README.md](../frontend/README.md) and [../scripts/deploy-frontend.sh](../scripts/deploy-frontend.sh).
 - **PDF export (Phase 5):** For Lambda PDF export, run `npm install` in `modules/api/src/` before `terraform apply` so the zip includes `pdfkit`. CSV export works without it.
@@ -60,3 +60,13 @@ Copy `terraform.tfvars.example` to `terraform.tfvars` and set values. For Gmail 
    Example: `https://saven-auth-dev.auth.ap-south-2.amazoncognito.com/oauth2/idpresponse`
 3. Set `google_client_id` and `google_client_secret` in `terraform.tfvars` or via `TF_VAR_*` env vars.
 4. Apply. The Hosted UI will show a “Sign in with Google” option.
+
+### Invite-only (hide “Sign up” on Hosted UI)
+
+The user pool is set to **Only allow administrators to create users** (`allow_admin_create_user_only = true`), so the Hosted UI should not show “Need an account? Sign up”. If you still see it:
+
+1. Run `terraform apply` from `infra/` so the user pool policy is updated.
+2. In AWS Console → Cognito → your User pool → **Sign-in experience** (or **Policies**), confirm **Only allow administrators to create users** is selected.
+3. Try the Hosted UI in an incognito/private window in case of caching.
+
+To **send invites** (create users and optionally email a temporary password), see [../docs/invites.md](../docs/invites.md). You can follow those steps from any browser, including incognito.

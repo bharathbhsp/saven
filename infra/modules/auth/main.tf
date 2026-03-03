@@ -34,7 +34,7 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   admin_create_user_config {
-    allow_admin_create_user_only = false
+    allow_admin_create_user_only = true  # Invite only: no self sign-up; users created by admin
   }
 
   tags = {
