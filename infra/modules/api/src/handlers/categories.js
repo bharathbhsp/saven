@@ -1,10 +1,46 @@
 const { doc, TABLES, requireMember, now, uuid } = require("../db");
 const { json, badRequest, forbidden, notFound } = require("../responses");
 
+const DEFAULT_CATEGORIES = [
+  { categoryId: "default-food", name: "Food" },
+  { categoryId: "default-transport", name: "Transport" },
+  { categoryId: "default-shopping", name: "Shopping" },
+  { categoryId: "default-bills", name: "Bills" },
+  { categoryId: "default-entertainment", name: "Entertainment" },
+  { categoryId: "default-health", name: "Health" },
+  { categoryId: "default-other", name: "Other" },
+];
+
+async function ensureGlobalDefaults(userId) {
+  const r = await doc.query({
+    TableName: TABLES.categories,
+    KeyConditionExpression: "groupId = :gid",
+    ExpressionAttributeValues: { ":gid": "GLOBAL" },
+  }).promise();
+  const items = r.Items || [];
+  if (items.length > 0) return;
+  const ts = now();
+  for (const { categoryId, name } of DEFAULT_CATEGORIES) {
+    await doc.put({
+      TableName: TABLES.categories,
+      Item: {
+        groupId: "GLOBAL",
+        categoryId,
+        name,
+        archived: false,
+        createdAt: ts,
+        updatedAt: ts,
+        createdBy: userId,
+      },
+    }).promise();
+  }
+}
+
 async function list(params, body, userId) {
   const { groupId } = params;
   const isMember = await requireMember(groupId, userId);
   if (!isMember) return forbidden("Not a member of this group");
+  await ensureGlobalDefaults(userId);
   const [groupCat, globalCat] = await Promise.all([
     doc.query({
       TableName: TABLES.categories,

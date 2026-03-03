@@ -20,6 +20,7 @@ export default function Transactions() {
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState("");
   const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("month");
@@ -55,6 +56,20 @@ export default function Transactions() {
   useEffect(() => {
     if (!groupId) return;
     let cancelled = false;
+    (async () => {
+      try {
+        const data = await api(() => token, `/groups/${groupId}/categories`);
+        if (!cancelled) setCategories(data.categories || []);
+      } catch (_) {
+        if (!cancelled) setCategories([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    let cancelled = false;
     setLoading(true);
     (async () => {
       try {
@@ -79,6 +94,7 @@ export default function Transactions() {
   }, [token, groupId, filter, day, month, startDate, endDate]);
 
   const total = transactions.reduce((s, t) => s + (t.amount || 0), 0);
+  const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
 
   function exportStartEnd() {
     if (filter === "day") return { startDate: day, endDate: day };
@@ -208,16 +224,28 @@ export default function Transactions() {
               {transactions.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No transactions for this filter.</p>
               ) : (
-                <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-card">
-                  {transactions.map((t) => (
-                    <li key={t.sk || t.transactionId} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                      <span className="text-muted-foreground w-24">{t.date}</span>
-                      <span className="font-medium text-foreground min-w-[4rem]">{t.amount}</span>
-                      <span className="text-muted-foreground">{t.categoryId}</span>
-                      {t.note && <span className="text-muted-foreground/80 truncate max-w-[12rem]">{t.note}</span>}
-                    </li>
-                  ))}
-                </ul>
+                <div className="border border-border rounded-lg overflow-hidden bg-card">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 text-left text-muted-foreground font-medium">
+                        <th className="px-4 py-2.5 w-24">Date</th>
+                        <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
+                        <th className="px-4 py-2.5">Category</th>
+                        <th className="px-4 py-2.5">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {transactions.map((t) => (
+                        <tr key={t.sk || t.transactionId}>
+                          <td className="px-4 py-3 text-muted-foreground">{t.date}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
+                          <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </>
           )}

@@ -19,6 +19,9 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +53,26 @@ export default function AddTransaction() {
     })();
     return () => { cancelled = true; };
   }, [token, groupId]);
+
+  async function handleAddCategory(e) {
+    e.preventDefault();
+    if (!newCategoryName.trim() || !groupId) return;
+    setAddingCategory(true);
+    setCategoryError(null);
+    try {
+      const data = await api(() => token, `/groups/${groupId}/categories`, {
+        method: "POST",
+        body: JSON.stringify({ name: newCategoryName.trim() }),
+      });
+      setCategories((prev) => [...prev, data.category]);
+      setCategoryId(data.category.categoryId);
+      setNewCategoryName("");
+    } catch (e) {
+      setCategoryError(e.message || "Failed to add category");
+    } finally {
+      setAddingCategory(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -110,6 +133,28 @@ export default function AddTransaction() {
               <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
             ))}
           </select>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">Or add new:</span>
+            <form onSubmit={handleAddCategory} className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Category name"
+                className="flex-1 min-w-[8rem] px-2 py-1.5 text-sm border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="submit"
+                disabled={addingCategory || !newCategoryName.trim()}
+                className="py-1.5 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 disabled:opacity-60 transition-opacity"
+              >
+                {addingCategory ? "Adding…" : "Add"}
+              </button>
+            </form>
+            {categoryError && (
+              <span className="text-sm text-destructive">{categoryError}</span>
+            )}
+          </div>
         </label>
         <label>
           <span className={labelClass}>Note (optional)</span>

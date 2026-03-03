@@ -9,9 +9,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recent, setRecent] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [createName, setCreateName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,13 +40,15 @@ export default function Dashboard() {
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     (async () => {
       try {
-        const data = await api(
-          () => token,
-          `/groups/${selectedGroup}/transactions?month=${month}`
-        );
-        if (!cancelled) setRecent((data.transactions || []).slice(0, 10));
+        const [txData, catData] = await Promise.all([
+          api(() => token, `/groups/${selectedGroup}/transactions?month=${month}`),
+          api(() => token, `/groups/${selectedGroup}/categories`),
+        ]);
+        if (!cancelled) setRecent((txData.transactions || []).slice(0, 10));
+        if (!cancelled) setCategories(catData.categories || []);
       } catch (_) {
         if (!cancelled) setRecent([]);
+        if (!cancelled) setCategories([]);
       }
     })();
     return () => { cancelled = true; };
@@ -63,6 +67,7 @@ export default function Dashboard() {
       setGroups((prev) => [...prev, data.group]);
       setSelectedGroup(data.group.id);
       setCreateName("");
+      setShowCreateGroup(false);
     } catch (e) {
       setError(e.message || "Failed to create group");
     } finally {
@@ -84,6 +89,7 @@ export default function Dashboard() {
   }
 
   const totalMonth = recent.reduce((s, t) => s + (t.amount || 0), 0);
+  const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
 
   return (
     <div>
@@ -131,7 +137,43 @@ export default function Dashboard() {
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setShowCreateGroup((v) => !v)}
+              className="py-2 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+            >
+              {showCreateGroup ? "Cancel" : "New group"}
+            </button>
           </div>
+
+          {showCreateGroup && (
+            <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-4">
+              <p className="text-sm text-muted-foreground">Create another group to track spending separately.</p>
+              <form onSubmit={handleCreateGroup} className="flex flex-wrap items-end gap-3">
+                <label className="flex-1 min-w-[12rem]">
+                  <span className="text-sm font-medium text-foreground block mb-1">Group name</span>
+                  <input
+                    type="text"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="e.g. Travel"
+                    required
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+                >
+                  {creating ? "Creating…" : "Create group"}
+                </button>
+              </form>
+              {error && (
+                <div className="px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm">{error}</div>
+              )}
+            </div>
+          )}
 
           <section>
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">This month</h2>
@@ -143,16 +185,28 @@ export default function Dashboard() {
             {recent.length === 0 ? (
               <p className="text-muted-foreground text-sm">No transactions this month.</p>
             ) : (
-              <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-card">
-                {recent.map((t) => (
-                  <li key={t.sk || t.transactionId} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                    <span className="text-muted-foreground w-24">{t.date}</span>
-                    <span className="font-medium text-foreground min-w-[4rem]">{t.amount}</span>
-                    <span className="text-muted-foreground">{t.categoryId}</span>
-                    {t.note && <span className="text-muted-foreground/80 truncate max-w-[12rem]">{t.note}</span>}
-                  </li>
-                ))}
-              </ul>
+              <div className="border border-border rounded-lg overflow-hidden bg-card">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 text-left text-muted-foreground font-medium">
+                      <th className="px-4 py-2.5 w-24">Date</th>
+                      <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
+                      <th className="px-4 py-2.5">Category</th>
+                      <th className="px-4 py-2.5">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {recent.map((t) => (
+                      <tr key={t.sk || t.transactionId}>
+                        <td className="px-4 py-3 text-muted-foreground">{t.date}</td>
+                        <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
+                        <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
 
