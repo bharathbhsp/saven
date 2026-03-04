@@ -36,25 +36,34 @@ async function ensureGlobalDefaults(userId) {
   }
 }
 
+async function queryAll(TableName, KeyConditionExpression, ExpressionAttributeValues) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const params = {
+      TableName,
+      KeyConditionExpression,
+      ExpressionAttributeValues,
+    };
+    if (ExclusiveStartKey) params.ExclusiveStartKey = ExclusiveStartKey;
+    const r = await doc.query(params).promise();
+    items.push(...(r.Items || []));
+    ExclusiveStartKey = r.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
 async function list(params, body, userId) {
   const { groupId } = params;
   const isMember = await requireMember(groupId, userId);
   if (!isMember) return forbidden("Not a member of this group");
   await ensureGlobalDefaults(userId);
-  const [groupCat, globalCat] = await Promise.all([
-    doc.query({
-      TableName: TABLES.categories,
-      KeyConditionExpression: "groupId = :gid",
-      ExpressionAttributeValues: { ":gid": groupId },
-    }).promise(),
-    doc.query({
-      TableName: TABLES.categories,
-      KeyConditionExpression: "groupId = :gid",
-      ExpressionAttributeValues: { ":gid": "GLOBAL" },
-    }).promise(),
+  const [groupItems, globalItems] = await Promise.all([
+    queryAll(TABLES.categories, "groupId = :gid", { ":gid": groupId }),
+    queryAll(TABLES.categories, "groupId = :gid", { ":gid": "GLOBAL" }),
   ]);
-  const group = (groupCat.Items || []).filter((c) => !c.archived);
-  const global = (globalCat.Items || []).filter((c) => !c.archived);
+  const group = groupItems.filter((c) => !c.archived);
+  const global = globalItems.filter((c) => !c.archived);
   const categories = [...global, ...group];
   return json(200, { categories });
 }

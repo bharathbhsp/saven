@@ -133,7 +133,7 @@ A spend tracking application built on the **AWS serverless/functions ecosystem**
 - **Recurring transactions:** In scope or later?
 - **Budgets / alerts:** In scope or future phase?
 - **Google Sheets:** One sheet per group vs one master sheet with tabs?
-- **Telegram bot:** Which commands in scope (e.g. /add, /summary, /today, /month)? Link user via magic link to Cognito or simple bot-only auth? **Mini-LLM for NLP:** Which model or service (e.g. small local/API model, Bedrock small model, or third-party "mini" LLM API) for extracting amount/category/date from free text?
+- **Telegram bot:** Which commands in scope (e.g. /add, /summary, /today, /month)? Link user via magic link to Cognito or simple bot-only auth? **Mini-LLM for NLP:** **GPT-4o mini** (OpenAI); key in SSM; see [telegram-mini-llm-suggestions.md](telegram-mini-llm-suggestions.md).
 
 ---
 

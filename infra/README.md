@@ -16,8 +16,8 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 - **PDF export (Phase 5):** For Lambda PDF export, run `npm install` in `modules/api/src/` before `terraform apply` so the zip includes `pdfkit`. CSV export works without it.
 - **API (Phase 2 & 3):** API Gateway HTTP API with JWT authorizer (Cognito), Lambda CRUD API (groups, members, categories, transactions), IAM, CloudWatch log group. See [../docs/api.md](../docs/api.md).
 - **Frontend:** S3 buckets (app, exports), CloudFront distribution with OAI; exports bucket lifecycle (7-day expiration)
-- **Secrets:** SSM Parameter Store (Google credentials, Telegram bot token)
-- **Phase 6 — Telegram bot:** DynamoDB tables `telegram_links`, `telegram_link_codes`; Lambda handles `POST /webhook/telegram`; bot token in Parameter Store. See [Telegram bot](#telegram-bot-phase-6) below.
+- **Secrets:** SSM Parameter Store (Google credentials, Telegram bot token, optional OpenAI API key for Telegram NLP)
+- **Phase 6 — Telegram bot:** DynamoDB tables `telegram_links`, `telegram_link_codes`; Lambda handles `POST /webhook/telegram`; bot token in Parameter Store. Optional **GPT-4o mini** for free-text parsing (set `openai_key`); falls back to regex if unset. See [Telegram bot](#telegram-bot-phase-6) below.
 
 ## Commands
 
@@ -84,3 +84,5 @@ To **send invites** (create users and optionally email a temporary password), se
    `https://abc123.execute-api.ap-south-2.amazonaws.com/webhook/telegram`.
 4. Users link their account in the app: **Settings → Connect Telegram** (generate code), then in Telegram send `/link <code>` to your bot.
 5. Bot commands: `/start`, `/add <amount> <category> [date]`, `/today`, `/month`, `/range <start> <end>`, and free text (e.g. `50 coffee`). See [../docs/api.md](../docs/api.md).
+
+**Free-text NLP (optional):** To use GPT-4o mini for parsing messages like "spent 20 on groceries yesterday", set `openai_key` in `terraform.tfvars` or `TF_VAR_openai_key=<key> terraform apply`. The key is stored in SSM at `/${name_prefix}/telegram/openai-api-key`. If unset or "placeholder", the bot uses regex-only parsing. See [../docs/telegram-mini-llm-suggestions.md](../docs/telegram-mini-llm-suggestions.md).

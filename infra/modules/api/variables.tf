@@ -49,3 +49,9 @@ variable "telegram_bot_token_ssm" {
   type        = string
   default     = ""
 }
+
+variable "telegram_openai_api_key_ssm" {
+  description = "SSM Parameter Store name for OpenAI API key (Telegram free-text NLP, GPT-4o mini)"
+  type        = string
+  default     = ""
+}

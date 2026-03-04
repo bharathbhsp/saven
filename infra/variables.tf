@@ -57,3 +57,11 @@ variable "telegram_bot_token" {
   default     = ""
   sensitive   = true
 }
+
+# Phase 6 — Telegram free-text NLP (GPT-4o mini). Prefer TF_VAR_openai_key=... for secrets.
+variable "openai_key" {
+  description = "OpenAI API key for Telegram free-text parsing (GPT-4o mini); leave empty or placeholder to use regex-only fallback"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

@@ -15,3 +15,6 @@ cognito_domain = "saven"  # Must be globally unique across AWS
 # extra_logout_urls   = ["https://d123abc.cloudfront.net/"]
 
 telegram_bot_token = ""
+
+# OpenAI API key for Telegram free-text NLP (GPT-4o mini). Leave empty or set to "placeholder" to use regex-only; set via TF_VAR_openai_key in production.
+openai_key = ""

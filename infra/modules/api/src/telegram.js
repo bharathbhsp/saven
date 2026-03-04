@@ -432,21 +432,20 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     return;
   }
 
-  const free = parseFreeText(text);
-  if (free) {
-    const listRes = await groups.list({}, {}, userId);
-    if (listRes.statusCode !== 200) {
-      await sendMessage(token, chatId, "Could not load your groups.");
-      return;
-    }
-    let groupList;
-    try {
-      groupList = JSON.parse(listRes.body);
-    } catch {
-      await sendMessage(token, chatId, "Error loading groups.");
-      return;
-    }
-    const userGroups = groupList.groups || [];
+  // Free-text: load groups first so we can pass default group's categories to GPT-4o mini
+  const listRes = await groups.list({}, {}, userId);
+  if (listRes.statusCode !== 200) {
+    await sendMessage(token, chatId, "Could not load your groups.");
+    return;
+  }
+  let groupList;
+  try {
+    groupList = JSON.parse(listRes.body);
+  } catch {
+    await sendMessage(token, chatId, "Error loading groups.");
+    return;
+  }
+  const userGroups = groupList.groups || [];
     const inGroupChatFree = chatType === "group" || chatType === "supergroup";
     if (inGroupChatFree && chatLinkedGroupId) {
       const isMemberOfLinkedGroup = userGroups.some((g) => g.id === chatLinkedGroupId);
@@ -456,16 +455,47 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         return;
       }
     }
-    if (userGroups.length === 0) {
-      await sendMessage(token, chatId, "Create a group first in the Saven app.");
-      return;
-    }
-    if (inGroupChatFree && !chatLinkedGroupId) {
+  if (inGroupChatFree && !chatLinkedGroupId) {
       await sendMessage(token, chatId,
         "This chat isn’t linked to a shared Saven group. To record everyone’s spend here into one group:\n" +
         "1) In Saven app: Settings → Link Telegram group → pick the group → generate code.\n" +
         "2) Here, have an admin run: /linkgroup &lt;code&gt;\n" +
         "Then everyone in this chat can add spend to that same Saven group.");
+    return;
+  }
+  let categoryNames = [];
+  const defaultGroupIdForNlp = resolveGroupId(userGroups, {
+    groupHint: null,
+    defaultGroupId: linkRecord?.defaultGroupId,
+    chatLinkedGroupId,
+  });
+  if (defaultGroupIdForNlp) {
+    const catRes = await categories.list({ groupId: defaultGroupIdForNlp }, {}, userId);
+    if (catRes.statusCode === 200) {
+      try {
+        const catData = JSON.parse(catRes.body);
+        const cats = catData.categories || [];
+        categoryNames = cats.map((c) => c.name).filter(Boolean);
+      } catch (_) {}
+    }
+  }
+  let free = null;
+  console.log("[Telegram] free-text: trying GPT-4o mini");
+  try {
+    const telegramNlp = require("./telegramNlp");
+    free = await telegramNlp.extract(text, { todayDate: todayStr(), categoryNames });
+  } catch (e) {
+    console.error("[Telegram] free-text: NLP extract error:", e.message);
+  }
+  if (!free) {
+    console.log("[Telegram] free-text: GPT-4o mini unavailable or failed, using regex parser");
+    free = parseFreeText(text);
+  } else if (free.fromNlp) {
+    console.log("[Telegram] free-text: GPT-4o mini extracted, using result");
+  }
+  if (free) {
+    if (userGroups.length === 0) {
+      await sendMessage(token, chatId, "Create a group first in the Saven app.");
       return;
     }
     const groupId = resolveGroupId(userGroups, {
@@ -480,7 +510,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     const categoryId = await resolveCategoryId(groupId, free.categoryHint, userId);
     const createRes = await transactions.create(
       { groupId },
-      { amount: free.amount, date: free.date, categoryId, note: "via Telegram (free text)" },
+      { amount: free.amount, date: free.date, categoryId, note: free.fromNlp ? (free.note ?? "") : "via Telegram (free text)" },
       userId
     );
     if (createRes.statusCode === 201) {

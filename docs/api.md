@@ -45,7 +45,7 @@ All errors return JSON:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /groups/:groupId/members | List members (must be member) |
-| POST | /groups/:groupId/members | Add member (body: `{ "userId": "cognito-sub" }`) |
+| POST | /groups/:groupId/members | Add member (body: `{ "email": "user@example.com" }`; resolves to Cognito user) |
 | DELETE | /groups/:groupId/members/:userId | Remove member |
 
 ---

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
@@ -132,7 +133,15 @@ export default function Transactions() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-foreground mb-6">Transactions</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-xl font-semibold text-foreground">Transactions</h1>
+        <Link
+          to="/add"
+          className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
+        >
+          Add transaction
+        </Link>
+      </div>
 
       {groups.length === 0 ? (
         <p className="text-muted-foreground">No groups.</p>

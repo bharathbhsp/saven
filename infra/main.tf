@@ -38,7 +38,8 @@ module "api" {
   cognito_client_id       = module.auth.app_client_id
   dynamodb_tables         = module.data.dynamodb_tables
   exports_bucket_arn      = module.frontend.exports_bucket_arn
-  telegram_bot_token_ssm = aws_ssm_parameter.telegram_bot_token.name
+  telegram_bot_token_ssm     = aws_ssm_parameter.telegram_bot_token.name
+  telegram_openai_api_key_ssm = aws_ssm_parameter.telegram_openai_api_key.name
 }
 
 module "frontend" {
@@ -63,5 +64,13 @@ resource "aws_ssm_parameter" "telegram_bot_token" {
   description = "Telegram bot token (Phase 6); set via tfvars or TF_VAR_telegram_bot_token"
   type        = "SecureString"
   value       = coalesce(var.telegram_bot_token, "placeholder")
+  overwrite   = true
+}
+
+resource "aws_ssm_parameter" "telegram_openai_api_key" {
+  name        = "/${local.name_prefix}/telegram/openai-api-key"
+  description = "OpenAI API key for Telegram free-text NLP (GPT-4o mini); set via tfvars or TF_VAR_openai_key; use 'placeholder' to disable LLM"
+  type        = "SecureString"
+  value       = coalesce(var.openai_key, "placeholder")
   overwrite   = true
 }

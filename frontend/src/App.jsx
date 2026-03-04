@@ -5,7 +5,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddTransaction from "./pages/AddTransaction";
 import Transactions from "./pages/Transactions";
-import Settings from "./pages/Settings";
+import Groups from "./pages/Groups";
+import Categories from "./pages/Categories";
+import Profile from "./pages/Profile";
 
 function Protected({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -35,7 +37,10 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="add" element={<AddTransaction />} />
         <Route path="transactions" element={<Transactions />} />
-        <Route path="settings" element={<Settings />} />
+        <Route path="groups" element={<Groups />} />
+        <Route path="categories" element={<Categories />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="settings" element={<Navigate to="/profile" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

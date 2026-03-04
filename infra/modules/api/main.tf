@@ -55,6 +55,11 @@ resource "aws_iam_role_policy" "lambda" {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter", "ssm:GetParameters"]
         Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}-${var.environment}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-idp:ListUsers"]
+        Resource = var.cognito_pool_arn
       }
     ]
   })
@@ -114,7 +119,9 @@ resource "aws_lambda_function" "api" {
       TELEGRAM_LINK_CODES_TABLE     = var.dynamodb_tables.telegram_link_codes
       TELEGRAM_CHAT_LINKS_TABLE     = var.dynamodb_tables.telegram_chat_links
       TELEGRAM_CHAT_LINK_CODES_TABLE = var.dynamodb_tables.telegram_chat_link_codes
-      TELEGRAM_BOT_TOKEN_SSM        = var.telegram_bot_token_ssm
+      TELEGRAM_BOT_TOKEN_SSM         = var.telegram_bot_token_ssm
+      TELEGRAM_OPENAI_API_KEY_SSM     = var.telegram_openai_api_key_ssm
+      COGNITO_USER_POOL_ID            = var.cognito_pool_id
     }
   }
 
