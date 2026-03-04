@@ -9,13 +9,27 @@ async function resolveUserIdByEmail(email) {
   if (!cognito || !userPoolId) return null;
   const trimmed = email && typeof email === "string" ? email.trim() : "";
   if (!trimmed) return null;
-  const Filter = `email = \\"${trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}\\"`;
+  // Cognito ListUsers filter: exact match. Use plain quotes; SDK escapes when serializing to JSON.
+  const Filter = `email = "${trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   const cmd = new ListUsersCommand({
     UserPoolId: userPoolId,
     Filter,
     Limit: 2,
   });
-  const res = await cognito.send(cmd);
+  let res;
+  try {
+    res = await cognito.send(cmd);
+  } catch (err) {
+    const code = err.name || err.code || "";
+    const msg = err.message || String(err);
+    if (/InvalidParameter|InvalidParameterException/i.test(code)) {
+      throw new Error("Invalid email format or lookup failed. Try the exact email they use to sign in.");
+    }
+    if (/NotAuthorized|AccessDenied|ResourceNotFoundException/i.test(code)) {
+      throw new Error("Unable to look up users. Check that the API has permission to list users in the Cognito user pool.");
+    }
+    throw new Error(msg || "Could not look up user by email.");
+  }
   const users = res.Users || [];
   if (users.length !== 1) return null;
   const subAttr = (users[0].Attributes || []).find((a) => a.Name === "sub");
@@ -40,7 +54,15 @@ async function add(params, body, userId) {
   if (!isMember) return forbidden("Not a member of this group");
   const email = body && body.email;
   if (!email || typeof email !== "string" || !email.trim()) return badRequest("email is required");
-  let targetUserId = await resolveUserIdByEmail(email);
+  if (!userPoolId || !cognito) {
+    return badRequest("Add member by email is not configured. Deploy the API with COGNITO_USER_POOL_ID set.");
+  }
+  let targetUserId;
+  try {
+    targetUserId = await resolveUserIdByEmail(email);
+  } catch (err) {
+    return badRequest(err.message || "Could not look up user by email.");
+  }
   if (!targetUserId) return badRequest("No user found with that email address");
   const ts = now();
   await doc.put({

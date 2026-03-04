@@ -35,6 +35,7 @@ async function list(params, body, userId, query) {
     TableName: TABLES.transactions,
     KeyConditionExpression: "groupId = :gid AND sk BETWEEN :start AND :end",
     ExpressionAttributeValues: { ":gid": groupId, ":start": range.skStart, ":end": range.skEnd },
+    ScanIndexForward: false, // latest date first (descending order by sk = date#transactionId)
   }).promise();
   return json(200, { transactions: r.Items || [] });
 }

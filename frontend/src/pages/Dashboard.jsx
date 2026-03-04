@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
 export default function Dashboard() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,7 +44,7 @@ export default function Dashboard() {
           api(() => token, `/groups/${selectedGroup}/transactions?month=${month}`),
           api(() => token, `/groups/${selectedGroup}/categories`),
         ]);
-        if (!cancelled) setRecent((txData.transactions || []).slice(0, 10));
+        if (!cancelled) setRecent((txData.transactions || []).slice(0, 5));
         if (!cancelled) setCategories(catData.categories || []);
       } catch (_) {
         if (!cancelled) setRecent([]);
@@ -193,6 +193,8 @@ export default function Dashboard() {
                       <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
                       <th className="px-4 py-2.5">Category</th>
                       <th className="px-4 py-2.5">Note</th>
+                      <th className="px-4 py-2.5 w-36">Date of entry</th>
+                      <th className="px-4 py-2.5">Submitted by</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -202,6 +204,14 @@ export default function Dashboard() {
                         <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
                         <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
                         <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {t.createdAt
+                            ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

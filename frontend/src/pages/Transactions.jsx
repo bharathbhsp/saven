@@ -17,7 +17,7 @@ const inputClass =
   "px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
 export default function Transactions() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState("");
   const [transactions, setTransactions] = useState([]);
@@ -241,6 +241,8 @@ export default function Transactions() {
                         <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
                         <th className="px-4 py-2.5">Category</th>
                         <th className="px-4 py-2.5">Note</th>
+                        <th className="px-4 py-2.5 w-36">Date of entry</th>
+                        <th className="px-4 py-2.5">Submitted by</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -250,6 +252,14 @@ export default function Transactions() {
                           <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
                           <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
                           <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                            {t.createdAt
+                              ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                            {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
