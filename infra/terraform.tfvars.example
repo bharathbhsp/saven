@@ -13,3 +13,5 @@ cognito_domain = "saven"  # Must be globally unique across AWS
 # Production frontend URL(s) so Cognito login redirect works (avoids redirect_mismatch).
 # extra_callback_urls = ["https://d123abc.cloudfront.net/"]
 # extra_logout_urls   = ["https://d123abc.cloudfront.net/"]
+
+telegram_bot_token = ""

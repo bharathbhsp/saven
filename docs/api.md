@@ -94,3 +94,37 @@ All create/update responses return the created or updated resource object.
 | GET | /groups/:groupId/export/pdf | Export transactions as PDF report. Query: same as CSV |
 
 Returns file download (`Content-Disposition: attachment`). CSV: `text/csv`; PDF: `application/pdf`. Requires group membership.
+
+---
+
+## Telegram (Phase 6)
+
+### Webhook (no auth)
+
+Telegram servers POST updates to the webhook URL. No JWT.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /webhook/telegram | Telegram Bot API webhook. Receives update payload; bot replies via Telegram. |
+
+After deployment, register the webhook with Telegram:  
+`https://api.telegram.org/bot<TOKEN>/setWebhook?url=<API_URL>/webhook/telegram`
+
+### Link code (JWT required)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /telegram/link-code | Create a one-time 6-digit code. Body: none. Returns `{ "code": "123456", "expiresIn": 600 }`. User sends `/link <code>` to the bot to link Telegram to their account. |
+
+---
+
+## Telegram bot commands and flow
+
+- **Link account:** In the Saven app go to Settings → Connect Telegram, generate a code, then in Telegram send `/link <code>` to the bot.
+- **Commands (after linking):**
+  - `/start` — Help and command list.
+  - `/add <amount> <category> [date]` — Record spend (date default: today). Example: `/add 50 Food` or `/add 20 Transport 2025-03-01`.
+  - `/today` — Today’s summary (all groups).
+  - `/month [YYYY-MM]` — Monthly summary (default: current month).
+  - `/range <start> <end>` — Summary for date range (YYYY-MM-DD).
+- **Free text:** The bot can parse simple messages and create a transaction, e.g. `50 coffee`, `spent 20 on groceries yesterday`. Category is matched by name (or “Other” if none match).

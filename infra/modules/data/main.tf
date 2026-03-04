@@ -95,3 +95,52 @@ resource "aws_dynamodb_table" "transactions" {
     Name = "${var.name_prefix}-transactions"
   }
 }
+
+# Phase 6 — Telegram bot: link Telegram user to app user
+resource "aws_dynamodb_table" "telegram_links" {
+  name         = "${var.name_prefix}-telegram-links"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "telegramUserId"
+
+  attribute {
+    name = "telegramUserId"
+    type = "S"
+  }
+
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "by-user"
+    hash_key        = "userId"
+    range_key       = "telegramUserId"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-telegram-links"
+  }
+}
+
+# One-time codes for /link <code> (code -> userId, expiresAt)
+resource "aws_dynamodb_table" "telegram_link_codes" {
+  name         = "${var.name_prefix}-telegram-link-codes"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "code"
+
+  attribute {
+    name = "code"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-telegram-link-codes"
+  }
+}

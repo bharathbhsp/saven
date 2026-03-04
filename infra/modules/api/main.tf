@@ -39,7 +39,9 @@ resource "aws_iam_role_policy" "lambda" {
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.groups}",
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.group_members}",
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.categories}",
-          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}"
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_links}",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_link_codes}"
         ]
       },
       {
@@ -69,7 +71,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb_index" {
         Action   = ["dynamodb:Query", "dynamodb:Scan"]
         Resource = [
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.group_members}/index/*",
-          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}/index/*"
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}/index/*",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_links}/index/*"
         ]
       }
     ]
@@ -100,10 +103,13 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      GROUPS_TABLE        = var.dynamodb_tables.groups
-      GROUP_MEMBERS_TABLE = var.dynamodb_tables.group_members
-      CATEGORIES_TABLE    = var.dynamodb_tables.categories
-      TRANSACTIONS_TABLE  = var.dynamodb_tables.transactions
+      GROUPS_TABLE             = var.dynamodb_tables.groups
+      GROUP_MEMBERS_TABLE      = var.dynamodb_tables.group_members
+      CATEGORIES_TABLE         = var.dynamodb_tables.categories
+      TRANSACTIONS_TABLE       = var.dynamodb_tables.transactions
+      TELEGRAM_LINKS_TABLE     = var.dynamodb_tables.telegram_links
+      TELEGRAM_LINK_CODES_TABLE = var.dynamodb_tables.telegram_link_codes
+      TELEGRAM_BOT_TOKEN_SSM   = var.telegram_bot_token_ssm
     }
   }
 
@@ -148,9 +154,18 @@ resource "aws_apigatewayv2_integration" "lambda" {
 
 # Public route: health check (no auth)
 resource "aws_apigatewayv2_route" "health" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /health"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /health"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "NONE"
+}
+
+# Phase 6 — Telegram webhook (no JWT; Telegram servers POST here)
+resource "aws_apigatewayv2_route" "webhook_telegram" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /webhook/telegram"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "NONE"
 }
 
 # CORS preflight: OPTIONS without JWT so browser preflight succeeds (fixes CORS from localhost)

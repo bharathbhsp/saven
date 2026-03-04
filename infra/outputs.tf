@@ -52,3 +52,8 @@ output "dynamodb_tables" {
   description = "DynamoDB table names"
   value       = module.data.dynamodb_tables
 }
+
+output "telegram_webhook_url" {
+  description = "URL to set as Telegram bot webhook (Phase 6)"
+  value       = "${module.api.api_url}/webhook/telegram"
+}

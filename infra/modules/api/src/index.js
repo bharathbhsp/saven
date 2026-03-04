@@ -51,6 +51,11 @@ exports.handler = async (event) => {
   }
 
   const path = getPath(event);
+  if (method === "POST" && path === "/webhook/telegram") {
+    const telegram = require("./telegram");
+    return telegram.handle(event);
+  }
+
   const route = match(method, path);
 
   if (!route) {
@@ -70,6 +75,7 @@ exports.handler = async (event) => {
   const transactions = require("./handlers/transactions");
 
   const exportHandler = require("./handlers/export");
+  const telegramLinkCode = require("./handlers/telegramLinkCode");
   const HANDLERS = {
     "groups.list": (p, b, uid) => groups.list(p, b, uid),
     "groups.create": (p, b, uid) => groups.create(p, b, uid),
@@ -90,6 +96,7 @@ exports.handler = async (event) => {
     "transactions.delete": (p, b, uid, q) => transactions.delete(p, b, uid, q),
     "export.csv": (p, b, uid, q) => exportHandler.csv(p, b, uid, q),
     "export.pdf": (p, b, uid, q) => exportHandler.pdf(p, b, uid, q),
+    "telegramLinkCode.create": (p, b, uid) => telegramLinkCode.create(p, b, uid),
   };
 
   const handler = HANDLERS[route.route];

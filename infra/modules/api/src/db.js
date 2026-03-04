@@ -25,6 +25,8 @@ const TABLES = {
   group_members: process.env.GROUP_MEMBERS_TABLE,
   categories: process.env.CATEGORIES_TABLE,
   transactions: process.env.TRANSACTIONS_TABLE,
+  telegram_links: process.env.TELEGRAM_LINKS_TABLE,
+  telegram_link_codes: process.env.TELEGRAM_LINK_CODES_TABLE,
 };
 
 function ensureTables() {

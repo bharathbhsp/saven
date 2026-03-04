@@ -16,7 +16,8 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 - **PDF export (Phase 5):** For Lambda PDF export, run `npm install` in `modules/api/src/` before `terraform apply` so the zip includes `pdfkit`. CSV export works without it.
 - **API (Phase 2 & 3):** API Gateway HTTP API with JWT authorizer (Cognito), Lambda CRUD API (groups, members, categories, transactions), IAM, CloudWatch log group. See [../docs/api.md](../docs/api.md).
 - **Frontend:** S3 buckets (app, exports), CloudFront distribution with OAI; exports bucket lifecycle (7-day expiration)
-- **Secrets:** SSM Parameter Store placeholders (Google credentials, Telegram bot token)
+- **Secrets:** SSM Parameter Store (Google credentials, Telegram bot token)
+- **Phase 6 — Telegram bot:** DynamoDB tables `telegram_links`, `telegram_link_codes`; Lambda handles `POST /webhook/telegram`; bot token in Parameter Store. See [Telegram bot](#telegram-bot-phase-6) below.
 
 ## Commands
 
@@ -50,7 +51,7 @@ Default is **local** state (`terraform.tfstate` in `infra/`). For team use, crea
 - `google_client_id` (optional, sensitive) — Google OAuth 2.0 client ID for **Gmail login**
 - `google_client_secret` (optional, sensitive) — Google OAuth 2.0 client secret
 
-Copy `terraform.tfvars.example` to `terraform.tfvars` and set values. For Gmail login, set the Google variables (use environment variables `TF_VAR_google_client_id` and `TF_VAR_google_client_secret` to avoid putting secrets in a file).
+Copy `terraform.tfvars.example` to `terraform.tfvars` and set values. For secrets use `TF_VAR_*` (e.g. `TF_VAR_google_client_secret`, `TF_VAR_telegram_bot_token`) to avoid storing them in files.
 
 ### Gmail / Google login
 
@@ -70,3 +71,16 @@ The user pool is set to **Only allow administrators to create users** (`allow_ad
 3. Try the Hosted UI in an incognito/private window in case of caching.
 
 To **send invites** (create users and optionally email a temporary password), see [../docs/invites.md](../docs/invites.md). You can follow those steps from any browser, including incognito.
+
+### Telegram bot (Phase 6)
+
+1. Create a bot with [@BotFather](https://t.me/botfather) and copy the token.
+2. Set `telegram_bot_token` in `terraform.tfvars` or run with `TF_VAR_telegram_bot_token=<token> terraform apply`.
+3. After deploy, register the webhook with Telegram (replace `<API_URL>` and `<TOKEN>`):
+   ```bash
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<API_URL>/webhook/telegram"
+   ```
+   Example: if `terraform output api_gateway_url` is `https://abc123.execute-api.ap-south-2.amazonaws.com`, use  
+   `https://abc123.execute-api.ap-south-2.amazonaws.com/webhook/telegram`.
+4. Users link their account in the app: **Settings → Connect Telegram** (generate code), then in Telegram send `/link <code>` to your bot.
+5. Bot commands: `/start`, `/add <amount> <category> [date]`, `/today`, `/month`, `/range <start> <end>`, and free text (e.g. `50 coffee`). See [../docs/api.md](../docs/api.md).

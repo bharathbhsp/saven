@@ -29,15 +29,16 @@ module "data" {
 module "api" {
   source = "./modules/api"
 
-  project_name       = var.project_name
-  environment        = var.environment
-  name_prefix        = local.name_prefix
-  aws_region         = var.aws_region
-  cognito_pool_arn   = module.auth.user_pool_arn
-  cognito_pool_id    = module.auth.user_pool_id
-  cognito_client_id  = module.auth.app_client_id
-  dynamodb_tables    = module.data.dynamodb_tables
-  exports_bucket_arn = module.frontend.exports_bucket_arn
+  project_name            = var.project_name
+  environment             = var.environment
+  name_prefix             = local.name_prefix
+  aws_region              = var.aws_region
+  cognito_pool_arn        = module.auth.user_pool_arn
+  cognito_pool_id         = module.auth.user_pool_id
+  cognito_client_id       = module.auth.app_client_id
+  dynamodb_tables         = module.data.dynamodb_tables
+  exports_bucket_arn      = module.frontend.exports_bucket_arn
+  telegram_bot_token_ssm = aws_ssm_parameter.telegram_bot_token.name
 }
 
 module "frontend" {
@@ -59,8 +60,8 @@ resource "aws_ssm_parameter" "google_credentials" {
 
 resource "aws_ssm_parameter" "telegram_bot_token" {
   name        = "/${local.name_prefix}/telegram/bot-token"
-  description = "Telegram bot token (placeholder until Phase 7)"
+  description = "Telegram bot token (Phase 6); set via tfvars or TF_VAR_telegram_bot_token"
   type        = "SecureString"
-  value       = "placeholder"
+  value       = coalesce(var.telegram_bot_token, "placeholder")
   overwrite   = true
 }

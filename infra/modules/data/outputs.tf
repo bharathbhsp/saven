@@ -1,9 +1,11 @@
 output "dynamodb_tables" {
   value = {
-    groups         = aws_dynamodb_table.groups.name
-    group_members  = aws_dynamodb_table.group_members.name
-    categories     = aws_dynamodb_table.categories.name
-    transactions   = aws_dynamodb_table.transactions.name
+    groups               = aws_dynamodb_table.groups.name
+    group_members        = aws_dynamodb_table.group_members.name
+    categories           = aws_dynamodb_table.categories.name
+    transactions         = aws_dynamodb_table.transactions.name
+    telegram_links       = aws_dynamodb_table.telegram_links.name
+    telegram_link_codes  = aws_dynamodb_table.telegram_link_codes.name
   }
 }
 

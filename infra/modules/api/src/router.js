@@ -8,6 +8,10 @@ function match(method, path) {
   if (method === "GET" && segments.length === 1 && segments[0] === "health") {
     return { route: "health", params: {} };
   }
+  // POST /telegram/link-code (Phase 6 — create one-time code for /link)
+  if (segments[0] === "telegram" && segments[1] === "link-code" && segments.length === 2 && method === "POST") {
+    return { route: "telegramLinkCode.create", params: {} };
+  }
   // /groups
   if (segments[0] === "groups") {
     if (segments.length === 1) {

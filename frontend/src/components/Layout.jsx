@@ -24,6 +24,9 @@ export default function Layout() {
             <NavLink to="/transactions" className={linkClass}>
               Transactions
             </NavLink>
+            <NavLink to="/settings" className={linkClass}>
+              Settings
+            </NavLink>
           </nav>
           <button
             type="button"

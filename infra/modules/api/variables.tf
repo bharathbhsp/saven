@@ -29,13 +29,21 @@ variable "aws_region" {
 
 variable "dynamodb_tables" {
   type = object({
-    groups        = string
-    group_members = string
-    categories    = string
-    transactions  = string
+    groups                = string
+    group_members         = string
+    categories            = string
+    transactions          = string
+    telegram_links         = string
+    telegram_link_codes   = string
   })
 }
 
 variable "exports_bucket_arn" {
   type = string
+}
+
+variable "telegram_bot_token_ssm" {
+  description = "SSM Parameter Store name for Telegram bot token (Phase 6)"
+  type        = string
+  default     = ""
 }

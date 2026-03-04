@@ -49,3 +49,11 @@ variable "extra_logout_urls" {
   type        = list(string)
   default     = []
 }
+
+# Phase 6 — Telegram bot. Prefer TF_VAR_telegram_bot_token=... for secrets.
+variable "telegram_bot_token" {
+  description = "Telegram bot token from BotFather (leave empty or use TF_VAR to disable/set)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
