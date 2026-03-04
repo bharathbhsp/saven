@@ -27,6 +27,8 @@ const TABLES = {
   transactions: process.env.TRANSACTIONS_TABLE,
   telegram_links: process.env.TELEGRAM_LINKS_TABLE,
   telegram_link_codes: process.env.TELEGRAM_LINK_CODES_TABLE,
+  telegram_chat_links: process.env.TELEGRAM_CHAT_LINKS_TABLE,
+  telegram_chat_link_codes: process.env.TELEGRAM_CHAT_LINK_CODES_TABLE,
 };
 
 function ensureTables() {

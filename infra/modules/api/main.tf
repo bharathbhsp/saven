@@ -41,7 +41,9 @@ resource "aws_iam_role_policy" "lambda" {
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.categories}",
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}",
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_links}",
-          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_link_codes}"
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_link_codes}",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_chat_links}",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_chat_link_codes}"
         ]
       },
       {
@@ -72,7 +74,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb_index" {
         Resource = [
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.group_members}/index/*",
           "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.transactions}/index/*",
-          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_links}/index/*"
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_links}/index/*",
+          "arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/${var.dynamodb_tables.telegram_chat_links}/index/*"
         ]
       }
     ]
@@ -107,9 +110,11 @@ resource "aws_lambda_function" "api" {
       GROUP_MEMBERS_TABLE      = var.dynamodb_tables.group_members
       CATEGORIES_TABLE         = var.dynamodb_tables.categories
       TRANSACTIONS_TABLE       = var.dynamodb_tables.transactions
-      TELEGRAM_LINKS_TABLE     = var.dynamodb_tables.telegram_links
-      TELEGRAM_LINK_CODES_TABLE = var.dynamodb_tables.telegram_link_codes
-      TELEGRAM_BOT_TOKEN_SSM   = var.telegram_bot_token_ssm
+      TELEGRAM_LINKS_TABLE          = var.dynamodb_tables.telegram_links
+      TELEGRAM_LINK_CODES_TABLE     = var.dynamodb_tables.telegram_link_codes
+      TELEGRAM_CHAT_LINKS_TABLE     = var.dynamodb_tables.telegram_chat_links
+      TELEGRAM_CHAT_LINK_CODES_TABLE = var.dynamodb_tables.telegram_chat_link_codes
+      TELEGRAM_BOT_TOKEN_SSM        = var.telegram_bot_token_ssm
     }
   }
 

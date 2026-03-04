@@ -76,6 +76,9 @@ exports.handler = async (event) => {
 
   const exportHandler = require("./handlers/export");
   const telegramLinkCode = require("./handlers/telegramLinkCode");
+  const telegramLink = require("./handlers/telegramLink");
+  const telegramChatLinkCode = require("./handlers/telegramChatLinkCode");
+  const telegramChatLinks = require("./handlers/telegramChatLinks");
   const HANDLERS = {
     "groups.list": (p, b, uid) => groups.list(p, b, uid),
     "groups.create": (p, b, uid) => groups.create(p, b, uid),
@@ -97,6 +100,10 @@ exports.handler = async (event) => {
     "export.csv": (p, b, uid, q) => exportHandler.csv(p, b, uid, q),
     "export.pdf": (p, b, uid, q) => exportHandler.pdf(p, b, uid, q),
     "telegramLinkCode.create": (p, b, uid) => telegramLinkCode.create(p, b, uid),
+    "telegramLink.get": (p, b, uid) => telegramLink.get(p, b, uid),
+    "telegramLink.update": (p, b, uid) => telegramLink.update(p, b, uid),
+    "telegramChatLinkCode.create": (p, b, uid) => telegramChatLinkCode.create(p, b, uid),
+    "telegramChatLinks.list": (p, b, uid) => telegramChatLinks.list(p, b, uid),
   };
 
   const handler = HANDLERS[route.route];

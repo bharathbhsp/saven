@@ -144,3 +144,51 @@ resource "aws_dynamodb_table" "telegram_link_codes" {
     Name = "${var.name_prefix}-telegram-link-codes"
   }
 }
+
+# Option C: Telegram group/supergroup chat -> Saven group (one Saven group per Telegram chat)
+resource "aws_dynamodb_table" "telegram_chat_links" {
+  name         = "${var.name_prefix}-telegram-chat-links"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "telegramChatId"
+
+  attribute {
+    name = "telegramChatId"
+    type = "S"
+  }
+
+  attribute {
+    name = "savenGroupId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "by-group"
+    hash_key        = "savenGroupId"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-telegram-chat-links"
+  }
+}
+
+# One-time codes for /linkgroup <code> (code -> groupId, userId, expiresAt)
+resource "aws_dynamodb_table" "telegram_chat_link_codes" {
+  name         = "${var.name_prefix}-telegram-chat-link-codes"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "code"
+
+  attribute {
+    name = "code"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-telegram-chat-link-codes"
+  }
+}

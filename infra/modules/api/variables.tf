@@ -29,12 +29,14 @@ variable "aws_region" {
 
 variable "dynamodb_tables" {
   type = object({
-    groups                = string
-    group_members         = string
-    categories            = string
-    transactions          = string
-    telegram_links         = string
-    telegram_link_codes   = string
+    groups                    = string
+    group_members             = string
+    categories                = string
+    transactions              = string
+    telegram_links            = string
+    telegram_link_codes       = string
+    telegram_chat_links       = string
+    telegram_chat_link_codes  = string
   })
 }
 

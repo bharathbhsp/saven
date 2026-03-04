@@ -24,7 +24,15 @@ async function getToken() {
 
 function getChatAndUser(update) {
   const msg = update.message || update.edited_message;
-  if (msg) return { chatId: msg.chat?.id, telegramUserId: String(msg.from?.id ?? ""), text: (msg.text || "").trim() };
+  if (msg) {
+    const chat = msg.chat || {};
+    return {
+      chatId: chat.id,
+      chatType: chat.type || "private",
+      telegramUserId: String(msg.from?.id ?? ""),
+      text: (msg.text || "").trim(),
+    };
+  }
   return null;
 }
 
@@ -35,6 +43,51 @@ async function getLinkedUserId(telegramUserId) {
     Key: { telegramUserId },
   }).promise();
   return r.Item?.userId ?? null;
+}
+
+/** Option B: full link record including defaultGroupId */
+async function getLinkRecord(telegramUserId) {
+  if (!telegramUserId || !TABLES.telegram_links) return null;
+  const r = await doc.get({
+    TableName: TABLES.telegram_links,
+    Key: { telegramUserId },
+  }).promise();
+  return r.Item || null;
+}
+
+/** Option C: Telegram chat (group/supergroup) -> Saven groupId */
+async function getChatLinkedGroupId(telegramChatId) {
+  if (!telegramChatId || !TABLES.telegram_chat_links) return null;
+  const r = await doc.get({
+    TableName: TABLES.telegram_chat_links,
+    Key: { telegramChatId: String(telegramChatId) },
+  }).promise();
+  return r.Item?.savenGroupId ?? null;
+}
+
+/** Resolve group: explicit hint > chat-linked group > default from link > first group */
+function findGroupByHint(userGroups, hint) {
+  if (!hint || !userGroups.length) return null;
+  const h = hint.replace(/^@/, "").trim().toLowerCase();
+  if (!h) return null;
+  const byId = userGroups.find((g) => g.id === hint || g.id === h);
+  if (byId) return byId.id;
+  const byName = userGroups.find((g) => g.name && g.name.toLowerCase() === h);
+  if (byName) return byName.id;
+  const fuzzy = userGroups.find((g) => g.name && g.name.toLowerCase().includes(h));
+  if (fuzzy) return fuzzy.id;
+  return null;
+}
+
+function resolveGroupId(userGroups, opts) {
+  const { groupHint, defaultGroupId, chatLinkedGroupId } = opts || {};
+  if (groupHint && userGroups.length) {
+    const gid = findGroupByHint(userGroups, groupHint);
+    if (gid) return gid;
+  }
+  if (chatLinkedGroupId && userGroups.some((g) => g.id === chatLinkedGroupId)) return chatLinkedGroupId;
+  if (defaultGroupId && userGroups.some((g) => g.id === defaultGroupId)) return defaultGroupId;
+  return userGroups[0] ? userGroups[0].id : null;
 }
 
 async function sendMessage(token, chatId, text) {
@@ -52,38 +105,57 @@ function todayStr() {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
-/** Parse /add 50 Food [YYYY-MM-DD] or /add 50 categoryName */
+/** Parse /add 50 Food [date] [group] — Option A: optional group name/id at end */
 function parseAddArgs(text) {
   const rest = text.replace(/^\s*\/add\s*/i, "").trim();
   const parts = rest.split(/\s+/);
-  if (parts.length < 2) return { err: "Use: /add &lt;amount&gt; &lt;category&gt; [date]\nExample: /add 50 Food" };
+  if (parts.length < 2) return { err: "Use: /add &lt;amount&gt; &lt;category&gt; [date] [group]\nExample: /add 50 Food or /add 50 Food Household" };
   const amount = parseFloat(parts[0]);
   if (Number.isNaN(amount) || amount <= 0) return { err: "Amount must be a positive number." };
   const categoryPart = parts[1];
-  const datePart = parts[2];
-  const date = datePart && DATE_RE.test(datePart) ? datePart : todayStr();
-  return { amount, categoryHint: categoryPart, date };
+  let date = todayStr();
+  let groupHint = null;
+  for (let i = 2; i < parts.length; i++) {
+    const p = parts[i];
+    if (DATE_RE.test(p)) date = p;
+    else if (p && p.replace(/^@/, "").trim()) groupHint = p.replace(/^@/, "").trim();
+  }
+  return { amount, categoryHint: categoryPart, date, groupHint };
 }
 
-/** Simple free-text: "50 coffee", "20 groceries yesterday", "spent 100 on food" */
+/** Simple free-text: "50 coffee", "20 groceries yesterday", "50 coffee Household" — Option A: optional group at end */
 function parseFreeText(text) {
   const t = text.trim();
   const spent = t.match(/spent?\s+(\d+(?:\.\d+)?)\s+(?:on\s+)?(.+)/i);
   if (spent) {
     const amount = parseFloat(spent[1]);
-    const rest = spent[2].trim();
+    let rest = spent[2].trim();
     let date = todayStr();
     const yesterday = rest.match(/(yesterday|yday)/i);
     if (yesterday) date = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    const catPart = rest.replace(/(yesterday|yday)\s*/gi, "").trim() || "Other";
-    return { amount, categoryHint: catPart, date };
+    rest = rest.replace(/(yesterday|yday)\s*/gi, "").trim();
+    const lastSpace = rest.lastIndexOf(" ");
+    const groupHint = lastSpace > 0 ? rest.slice(lastSpace + 1).replace(/^@/, "").trim() : null;
+    const catPart = (groupHint ? rest.slice(0, lastSpace).trim() : rest) || "Other";
+    return { amount, categoryHint: catPart, date, groupHint: groupHint || undefined };
   }
   const simple = t.match(/^(\d+(?:\.\d+)?)\s+(?:on\s+)?(.+?)(?:\s+(yesterday|today))?$/i);
   if (simple) {
     const amount = parseFloat(simple[1]);
     let date = todayStr();
     if (simple[3] && simple[3].toLowerCase() === "yesterday") date = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-    return { amount, categoryHint: simple[2].trim(), date };
+    let catPart = simple[2].trim();
+    const lastSpace = catPart.lastIndexOf(" ");
+    const groupHint = lastSpace > 0 ? catPart.slice(lastSpace + 1).replace(/^@/, "").trim() : null;
+    if (groupHint) catPart = catPart.slice(0, lastSpace).trim();
+    return { amount, categoryHint: catPart || "Other", date, groupHint: groupHint || undefined };
+  }
+  const withGroup = t.match(/^(\d+(?:\.\d+)?)\s+(.+?)\s+([A-Za-z0-9_-]+)$/);
+  if (withGroup) {
+    const amount = parseFloat(withGroup[1]);
+    const mid = withGroup[2].trim();
+    const last = withGroup[3].replace(/^@/, "");
+    if (!DATE_RE.test(last)) return { amount, categoryHint: mid, date: todayStr(), groupHint: last };
   }
   const justAmount = t.match(/^(\d+(?:\.\d+)?)\s*$/);
   if (justAmount) return { amount: parseFloat(justAmount[1]), categoryHint: "Other", date: todayStr() };
@@ -112,23 +184,30 @@ async function resolveCategoryId(groupId, categoryHint, userId) {
   return "default-other";
 }
 
-async function handleMessage(telegramUserId, chatId, text, token, userId) {
+async function handleMessage(telegramUserId, chatId, chatType, text, token, userId) {
   const groups = require("./handlers/groups");
   const transactions = require("./handlers/transactions");
   const categories = require("./handlers/categories");
 
   if (!text) return;
 
+  const linkRecord = await getLinkRecord(telegramUserId);
+  const chatLinkedGroupId = (chatType === "group" || chatType === "supergroup") ? await getChatLinkedGroupId(chatId) : null;
+
   if (text === "/start" || text.startsWith("/start ")) {
+    const inGroupChat = chatType === "group" || chatType === "supergroup";
+    const linkTip = inGroupChat && !chatLinkedGroupId
+      ? "\n\n📌 <b>In this chat:</b> To have everyone's spend go to <b>one shared Saven group</b>, an admin must run /linkgroup with a code from Saven app → Settings → Link Telegram group."
+      : "";
     await sendMessage(token, chatId,
       "👋 <b>Saven</b> — track spend from Telegram.\n\n" +
       "Commands:\n" +
-      "• /add &lt;amount&gt; &lt;category&gt; [date] — record spend\n" +
+      "• /add &lt;amount&gt; &lt;category&gt; [date] [group] — record spend\n" +
       "• /today — today's summary\n" +
       "• /month [YYYY-MM] — monthly summary\n" +
       "• /range &lt;start&gt; &lt;end&gt; — summary for date range\n" +
-      "• Or send free text: <i>50 coffee</i>, <i>spent 20 on groceries yesterday</i>\n\n" +
-      "You're linked. Use /add or type an amount and category.");
+      "• Or free text: <i>50 coffee</i>, <i>50 coffee Household</i>\n\n" +
+      "You're linked. Use /add or type an amount and category." + linkTip);
     return;
   }
 
@@ -156,11 +235,36 @@ async function handleMessage(telegramUserId, chatId, text, token, userId) {
       return;
     }
     const userGroups = groupList.groups || [];
+    const inGroupChat = chatType === "group" || chatType === "supergroup";
+    if (inGroupChat && chatLinkedGroupId) {
+      const isMemberOfLinkedGroup = userGroups.some((g) => g.id === chatLinkedGroupId);
+      if (!isMemberOfLinkedGroup) {
+        await sendMessage(token, chatId,
+          "You’re not a member of the Saven group linked to this chat. Ask the admin to add you to that group in the Saven app (Settings or group members), then you can add transactions here.");
+        return;
+      }
+    }
     if (userGroups.length === 0) {
       await sendMessage(token, chatId, "Create a group first in the Saven app.");
       return;
     }
-    const groupId = userGroups[0].id;
+    if (inGroupChat && !chatLinkedGroupId) {
+      await sendMessage(token, chatId,
+        "This chat isn’t linked to a shared Saven group. To record everyone’s spend here into one group:\n" +
+        "1) In Saven app: Settings → Link Telegram group → pick the group → generate code.\n" +
+        "2) Here, have an admin run: /linkgroup &lt;code&gt;\n" +
+        "Then everyone in this chat can add spend to that same Saven group.");
+      return;
+    }
+    const groupId = resolveGroupId(userGroups, {
+      groupHint: parsed.groupHint,
+      defaultGroupId: linkRecord?.defaultGroupId,
+      chatLinkedGroupId,
+    });
+    if (!groupId) {
+      await sendMessage(token, chatId, "Could not pick a group. Set a default in Settings or use: /add amount category GroupName");
+      return;
+    }
     const categoryId = await resolveCategoryId(groupId, parsed.categoryHint, userId);
     const createRes = await transactions.create(
       { groupId },
@@ -178,10 +282,14 @@ async function handleMessage(telegramUserId, chatId, text, token, userId) {
       await sendMessage(token, chatId, `✅ Recorded ${tx.amount} on ${tx.date} (${tx.categoryId}).`);
     } else {
       let msg = "Failed to add transaction.";
-      try {
-        const err = JSON.parse(createRes.body);
-        if (err.message) msg = err.message;
-      } catch (_) {}
+      if (createRes.statusCode === 403) {
+        msg = "You’re not a member of the Saven group linked to this chat. Ask the admin to add you in the Saven app.";
+      } else {
+        try {
+          const err = JSON.parse(createRes.body);
+          if (err.message) msg = err.message;
+        } catch (_) {}
+      }
       await sendMessage(token, chatId, msg);
     }
     return;
@@ -339,11 +447,36 @@ async function handleMessage(telegramUserId, chatId, text, token, userId) {
       return;
     }
     const userGroups = groupList.groups || [];
+    const inGroupChatFree = chatType === "group" || chatType === "supergroup";
+    if (inGroupChatFree && chatLinkedGroupId) {
+      const isMemberOfLinkedGroup = userGroups.some((g) => g.id === chatLinkedGroupId);
+      if (!isMemberOfLinkedGroup) {
+        await sendMessage(token, chatId,
+          "You’re not a member of the Saven group linked to this chat. Ask the admin to add you to that group in the Saven app (Settings or group members), then you can add transactions here.");
+        return;
+      }
+    }
     if (userGroups.length === 0) {
       await sendMessage(token, chatId, "Create a group first in the Saven app.");
       return;
     }
-    const groupId = userGroups[0].id;
+    if (inGroupChatFree && !chatLinkedGroupId) {
+      await sendMessage(token, chatId,
+        "This chat isn’t linked to a shared Saven group. To record everyone’s spend here into one group:\n" +
+        "1) In Saven app: Settings → Link Telegram group → pick the group → generate code.\n" +
+        "2) Here, have an admin run: /linkgroup &lt;code&gt;\n" +
+        "Then everyone in this chat can add spend to that same Saven group.");
+      return;
+    }
+    const groupId = resolveGroupId(userGroups, {
+      groupHint: free.groupHint,
+      defaultGroupId: linkRecord?.defaultGroupId,
+      chatLinkedGroupId,
+    });
+    if (!groupId) {
+      await sendMessage(token, chatId, "Could not pick a group. Set a default in Settings or add group name: 50 coffee GroupName");
+      return;
+    }
     const categoryId = await resolveCategoryId(groupId, free.categoryHint, userId);
     const createRes = await transactions.create(
       { groupId },
@@ -360,7 +493,11 @@ async function handleMessage(telegramUserId, chatId, text, token, userId) {
       const tx = body.transaction;
       await sendMessage(token, chatId, `✅ Recorded ${tx.amount} on ${tx.date}.`);
     } else {
-      await sendMessage(token, chatId, "Could not add transaction. Try /add amount category");
+      let msg = "Could not add transaction. Try /add amount category";
+      if (createRes.statusCode === 403) {
+        msg = "You’re not a member of the Saven group linked to this chat. Ask the admin to add you in the Saven app.";
+      }
+      await sendMessage(token, chatId, msg);
     }
     return;
   }
@@ -402,6 +539,53 @@ async function handleLink(telegramUserId, chatId, code, token) {
   await sendMessage(token, chatId, "✅ Account linked! You can now use /add, /today, /month and free text to log spend.");
 }
 
+/** Option C: link this Telegram group/supergroup to a Saven group (code from app) */
+async function handleLinkGroup(telegramUserId, chatId, chatType, code, token) {
+  if (chatType !== "group" && chatType !== "supergroup") {
+    await sendMessage(token, chatId, "Use /linkgroup in a Telegram group (add the bot to the group first).");
+    return;
+  }
+  if (!TABLES.telegram_chat_link_codes || !code) {
+    await sendMessage(token, chatId, "Use: /linkgroup &lt;code&gt;\nGet the code from Saven app → Settings → Link Telegram group.");
+    return;
+  }
+  const r = await doc.get({
+    TableName: TABLES.telegram_chat_link_codes,
+    Key: { code: code.trim() },
+  }).promise();
+  if (!r.Item) {
+    await sendMessage(token, chatId, "Invalid or expired code. Get a new code from the Saven app.");
+    return;
+  }
+  const savenGroupId = r.Item.groupId;
+  const createdBy = r.Item.userId;
+  const userId = await getLinkedUserId(telegramUserId);
+  if (!userId) {
+    await sendMessage(token, chatId, "Link your Telegram account first (send /start to the bot in a private chat).");
+    return;
+  }
+  const { requireMember } = require("./db");
+  const isMember = await requireMember(savenGroupId, userId);
+  if (!isMember) {
+    await sendMessage(token, chatId, "You are not a member of that Saven group. Only members can link this chat.");
+    return;
+  }
+  await doc.put({
+    TableName: TABLES.telegram_chat_links,
+    Item: {
+      telegramChatId: String(chatId),
+      savenGroupId,
+      linkedBy: createdBy,
+      linkedAt: now(),
+    },
+  }).promise();
+  await doc.delete({
+    TableName: TABLES.telegram_chat_link_codes,
+    Key: { code: code.trim() },
+  }).promise();
+  await sendMessage(token, chatId, "✅ This Telegram group is now linked to the Saven group. Messages here will record to that group.");
+}
+
 exports.handle = async (event) => {
   const token = await getToken();
   if (!token) return { statusCode: 200, body: "" };
@@ -418,12 +602,18 @@ exports.handle = async (event) => {
   const ctx = getChatAndUser(update);
   if (!ctx || ctx.chatId == null) return { statusCode: 200, body: "" };
 
-  const { chatId, telegramUserId, text } = ctx;
+  const { chatId, chatType, telegramUserId, text } = ctx;
   let userId = await getLinkedUserId(telegramUserId);
 
   if (text.startsWith("/link ")) {
     const code = text.replace(/^\s*\/link\s*/i, "").trim();
     await handleLink(telegramUserId, chatId, code, token);
+    return { statusCode: 200, body: "" };
+  }
+
+  if (text.startsWith("/linkgroup ")) {
+    const code = text.replace(/^\s*\/linkgroup\s*/i, "").trim();
+    await handleLinkGroup(telegramUserId, chatId, chatType, code, token);
     return { statusCode: 200, body: "" };
   }
 
@@ -443,6 +633,6 @@ exports.handle = async (event) => {
     return { statusCode: 200, body: "" };
   }
 
-  if (text) await handleMessage(telegramUserId, chatId, text, token, userId);
+  if (text) await handleMessage(telegramUserId, chatId, chatType, text, token, userId);
   return { statusCode: 200, body: "" };
 };

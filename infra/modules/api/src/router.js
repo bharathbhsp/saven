@@ -12,6 +12,22 @@ function match(method, path) {
   if (segments[0] === "telegram" && segments[1] === "link-code" && segments.length === 2 && method === "POST") {
     return { route: "telegramLinkCode.create", params: {} };
   }
+  // GET /telegram/link (Option B — get link status and default group)
+  if (segments[0] === "telegram" && segments[1] === "link" && segments.length === 2 && method === "GET") {
+    return { route: "telegramLink.get", params: {} };
+  }
+  // PATCH /telegram/link (Option B — set default group for Telegram)
+  if (segments[0] === "telegram" && segments[1] === "link" && segments.length === 2 && method === "PATCH") {
+    return { route: "telegramLink.update", params: {} };
+  }
+  // GET /telegram/chat-links (Option C — list Telegram groups linked to user's Saven groups)
+  if (segments[0] === "telegram" && segments[1] === "chat-links" && segments.length === 2 && method === "GET") {
+    return { route: "telegramChatLinks.list", params: {} };
+  }
+  // POST /telegram/chat-link-code (Option C — create code for /linkgroup)
+  if (segments[0] === "telegram" && segments[1] === "chat-link-code" && segments.length === 2 && method === "POST") {
+    return { route: "telegramChatLinkCode.create", params: {} };
+  }
   // /groups
   if (segments[0] === "groups") {
     if (segments.length === 1) {

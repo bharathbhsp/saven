@@ -110,21 +110,29 @@ Telegram servers POST updates to the webhook URL. No JWT.
 After deployment, register the webhook with Telegram:  
 `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<API_URL>/webhook/telegram`
 
-### Link code (JWT required)
+### Link and default group (JWT required)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /telegram/link-code | Create a one-time 6-digit code. Body: none. Returns `{ "code": "123456", "expiresIn": 600 }`. User sends `/link <code>` to the bot to link Telegram to their account. |
+| GET | /telegram/link | Get link status. Returns `{ "linked": true, "defaultGroupId": "..." }` or `{ "linked": false }`. |
+| PATCH | /telegram/link | Set or clear default group for Telegram (Option B). Body: `{ "defaultGroupId": "groupId" \| null }`. |
+| POST | /telegram/chat-link-code | Create a one-time code for linking a Telegram group to a Saven group (Option C). Body: `{ "groupId": "..." }`. Returns `{ "code", "expiresIn" }`. In the Telegram group, send `/linkgroup <code>`. |
+| GET | /telegram/chat-links | List Telegram groups linked to the user’s Saven groups. Returns `{ "links": [ { "groupId", "groupName", "telegramChatId" } ] }`. |
 
 ---
 
 ## Telegram bot commands and flow
 
 - **Link account:** In the Saven app go to Settings → Connect Telegram, generate a code, then in Telegram send `/link <code>` to the bot.
+- **Default group (Option B):** In Settings → “Default group for Telegram”, choose a group so the bot records to it when you don’t specify one.
+- **Link Telegram group (Option C):** In Settings → “Link Telegram group”, select a Saven group and generate a code. Add the bot to the Telegram group, then in that group send `/linkgroup <code>`. Messages in that Telegram group will record to that Saven group (only linked members can post).
 - **Commands (after linking):**
   - `/start` — Help and command list.
-  - `/add <amount> <category> [date]` — Record spend (date default: today). Example: `/add 50 Food` or `/add 20 Transport 2025-03-01`.
+  - `/add <amount> <category> [date] [group]` — Record spend (Option A: optional group name or id at end). Example: `/add 50 Food`, `/add 50 Food Household`, `/add 50 Food 2025-03-01`.
   - `/today` — Today’s summary (all groups).
   - `/month [YYYY-MM]` — Monthly summary (default: current month).
   - `/range <start> <end>` — Summary for date range (YYYY-MM-DD).
-- **Free text:** The bot can parse simple messages and create a transaction, e.g. `50 coffee`, `spent 20 on groceries yesterday`. Category is matched by name (or “Other” if none match).
+  - `/linkgroup <code>` — Link this Telegram group to a Saven group (use code from app; only in group/supergroup chats).
+- **Free text:** The bot parses e.g. `50 coffee`, `50 coffee Household`, `spent 20 on groceries yesterday`. Category is matched by name (or “Other” if none match). Optional group name at end (Option A).
+- **Group resolution order:** Explicit group in message (Option A) → Telegram chat–linked Saven group (Option C) → Default group from link (Option B) → first group.
