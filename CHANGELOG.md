@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **API:** GET `/groups/:groupId/export/csv` and `/groups/:groupId/export/pdf` with query `startDate`, `endDate`, optional `categoryId`; same auth and group membership as transactions
 - **CSV:** In-memory generation; `Content-Disposition: attachment`; columns Date, Amount, Category ID, Note
-- **PDF:** PDFKit in Lambda; table report (date, amount, category, note); optional dependency (`npm install` in `infra/modules/api/src` for PDF; CSV works without it)
+- **PDF:** PDFKit in Lambda; table report (date, amount, category, note); optional dependency (`npm install` in `backend/` for PDF; CSV works without it)
 - **UI:** Transactions page has "Export CSV" and "Export PDF" using current filter (day/month/range)
 
 ### Done when (Phase 4 & 5)
@@ -48,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Phase 3 — CRUD APIs
 
-- Single Lambda router (`infra/modules/api/src/`) with handlers for groups, members, categories, transactions
+- Single Lambda router (`backend/`) with handlers for groups, members, categories, transactions
 - **Groups:** GET list (for user), POST create, GET by id, PATCH update
 - **Group members:** GET list, POST add, DELETE remove
 - **Categories:** GET list (GLOBAL + group), POST create, GET by id, PATCH update/archive, DELETE (archive)

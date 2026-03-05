@@ -91,14 +91,14 @@ Lambda runs on your machine; it still talks to **real DynamoDB** (and needs real
    - **Option B — Run the handler in Node with env vars:**  
      From repo root, with AWS credentials and region set:
      ```bash
-     cd infra/modules/api/src
+     cd backend
      export GROUPS_TABLE=saven-dev-groups
      export GROUP_MEMBERS_TABLE=saven-dev-group_members
      export CATEGORIES_TABLE=saven-dev-categories
      export TRANSACTIONS_TABLE=saven-dev-transactions
      node -e "
      const handler = require('./index').handler;
-     const event = require('../test-events/health.json');
+     const event = require('../infra/modules/api/test-events/health.json');
      handler(event).then(r => console.log(JSON.stringify(r, null, 2)));
      "
      ```
@@ -116,7 +116,7 @@ Use the same Cognito Hosted UI or CLI flow as in strategy 1 to get an ID token, 
 
 Idea: run a small Express (or similar) server that:
 
-- Imports the same **router** and **handlers** from `infra/modules/api/src`.
+- Imports the same **router** and **handlers** from the repo-root `backend/`.
 - Forwards `req.method`, `req.path`, `req.query`, and `req.body` into a synthetic API Gateway event, then calls `handler(event)`.
 - Sets `process.env.GROUPS_TABLE`, etc., to either:
   - **Real tables** (same as strategy 2), or  

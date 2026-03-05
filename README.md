@@ -24,8 +24,14 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 - [Development phases](docs/dev-phases.md) — Phased development process (infra → data model → auth → APIs → UI → exports → Google Sheets → Telegram bot → multi-user polish)  
 - [Local testing strategy](docs/local-testing.md) — How to test the app locally (deployed API, Lambda invoke, local server, DynamoDB Local)  
 
+## Repo layout
+
+- **`backend/`** — Lambda API runtime (Node.js); packaged by Terraform and deployed to AWS.
+- **`frontend/`** — React app (Vite); build output is synced to S3/CloudFront.
+- **`infra/`** — Terraform only (no application source); references `backend/` for the Lambda zip.
+
 ## Getting started
 
 1. Review [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) and [docs/dev-phases.md](docs/dev-phases.md).  
-2. Set up AWS and Terraform; provision infrastructure (Phase 0).  
+2. Set up AWS and Terraform; provision infrastructure (Phase 0). From `infra/`, run `terraform init` and `terraform apply`. Install backend deps with `cd backend && npm install` before apply if you need PDF export.  
 3. Follow the phases in order to implement the app.

@@ -29,16 +29,17 @@ module "data" {
 module "api" {
   source = "./modules/api"
 
-  project_name            = var.project_name
-  environment             = var.environment
-  name_prefix             = local.name_prefix
-  aws_region              = var.aws_region
-  cognito_pool_arn        = module.auth.user_pool_arn
-  cognito_pool_id         = module.auth.user_pool_id
-  cognito_client_id       = module.auth.app_client_id
-  dynamodb_tables         = module.data.dynamodb_tables
-  exports_bucket_arn      = module.frontend.exports_bucket_arn
-  telegram_bot_token_ssm     = aws_ssm_parameter.telegram_bot_token.name
+  backend_source_path       = abspath("${path.root}/../backend")
+  project_name              = var.project_name
+  environment               = var.environment
+  name_prefix               = local.name_prefix
+  aws_region                = var.aws_region
+  cognito_pool_arn          = module.auth.user_pool_arn
+  cognito_pool_id           = module.auth.user_pool_id
+  cognito_client_id         = module.auth.app_client_id
+  dynamodb_tables           = module.data.dynamodb_tables
+  exports_bucket_arn       = module.frontend.exports_bucket_arn
+  telegram_bot_token_ssm    = aws_ssm_parameter.telegram_bot_token.name
   telegram_openai_api_key_ssm = aws_ssm_parameter.telegram_openai_api_key.name
 }
 

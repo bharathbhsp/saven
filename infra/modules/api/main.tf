@@ -87,10 +87,10 @@ resource "aws_iam_role_policy" "lambda_dynamodb_index" {
   })
 }
 
-# Lambda package (Phase 3 — CRUD API)
+# Lambda package (Phase 3 — CRUD API); source lives in repo-root backend/
 data "archive_file" "lambda_api" {
   type        = "zip"
-  source_dir  = "${path.module}/src"
+  source_dir  = var.backend_source_path
   output_path = "${path.module}/build/api.zip"
 }
 

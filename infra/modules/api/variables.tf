@@ -1,3 +1,8 @@
+variable "backend_source_path" {
+  description = "Absolute path to the backend (Lambda) source directory to zip for deployment"
+  type        = string
+}
+
 variable "project_name" {
   type = string
 }

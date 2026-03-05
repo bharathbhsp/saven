@@ -13,7 +13,7 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 - **Auth:** Cognito user pool (invite-only: no self sign-up), app client, hosted UI domain; optional **Google (Gmail) login** when OAuth credentials are set
 - **Data (Phase 1):** DynamoDB tables (groups, group_members, categories, transactions) with GSIs; schema and access patterns in [../docs/data-model.md](../docs/data-model.md)
 - **Frontend (Phase 4):** Build with `cd ../frontend && npm ci && npm run build`; sync `frontend/dist/` to the app bucket. See [../frontend/README.md](../frontend/README.md) and [../scripts/deploy-frontend.sh](../scripts/deploy-frontend.sh).
-- **PDF export (Phase 5):** For Lambda PDF export, run `npm install` in `modules/api/src/` before `terraform apply` so the zip includes `pdfkit`. CSV export works without it.
+- **PDF export (Phase 5):** For Lambda PDF export, run `npm install` in the repo-root `backend/` directory before `terraform apply` so the zip includes `pdfkit`. CSV export works without it.
 - **API (Phase 2 & 3):** API Gateway HTTP API with JWT authorizer (Cognito), Lambda CRUD API (groups, members, categories, transactions), IAM, CloudWatch log group. See [../docs/api.md](../docs/api.md).
 - **Frontend:** S3 buckets (app, exports), CloudFront distribution with OAI; exports bucket lifecycle (7-day expiration)
 - **Secrets:** SSM Parameter Store (Google credentials, Telegram bot token, optional OpenAI API key for Telegram NLP)
