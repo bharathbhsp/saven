@@ -244,7 +244,12 @@ export default function Transactions() {
             <p className="text-muted-foreground text-sm">Loading…</p>
           ) : (
             <>
-              <p className="text-lg font-medium text-foreground">Total: {total.toFixed(2)}</p>
+              <p className="text-lg font-medium text-foreground">
+                Total: {total.toFixed(2)}{" "}
+                <span className="text-sm text-muted-foreground">
+                  ({transactions.length} {transactions.length === 1 ? "transaction" : "transactions"})
+                </span>
+              </p>
               {transactions.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No transactions for this filter.</p>
               ) : (
@@ -254,6 +259,7 @@ export default function Transactions() {
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
                         <TableCell>Amount</TableCell>
+                        <TableCell>Payment mode</TableCell>
                         <TableCell>Category</TableCell>
                         <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
@@ -268,6 +274,7 @@ export default function Transactions() {
                               : "—"}
                           </TableCell>
                           <TableCell sx={{ fontWeight: 600 }}>{t.amount}</TableCell>
+                          <TableCell>{t.paymentMode || "—"}</TableCell>
                           <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
                           <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>
                           <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>

@@ -372,6 +372,34 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     return;
   }
 
+  if (text === "/groups") {
+    const listRes = await groups.list({}, {}, userId);
+    if (listRes.statusCode !== 200) {
+      await sendMessage(token, chatId, "Could not load your groups.");
+      return;
+    }
+    let groupList;
+    try {
+      groupList = JSON.parse(listRes.body);
+    } catch {
+      await sendMessage(token, chatId, "Error loading groups.");
+      return;
+    }
+    const userGroups = groupList.groups || [];
+    if (userGroups.length === 0) {
+      await sendMessage(token, chatId, "You don't have any Saven groups yet. Create one in the app.");
+      return;
+    }
+    const lines = [
+      "Your Saven groups:",
+      ...userGroups.map((g) => `• ${g.name}`),
+      "",
+      "Tip: when adding via Telegram, you can target a group with @GroupName, e.g. 200 breakfast @Household",
+    ];
+    await sendMessage(token, chatId, lines.join("\n"));
+    return;
+  }
+
   if (text.startsWith("/month")) {
     const rest = text.replace(/^\s*\/month\s*/i, "").trim();
     const month = rest || new Date().toISOString().slice(0, 7);
@@ -482,24 +510,28 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     return;
   }
   const userGroups = groupList.groups || [];
-    const inGroupChatFree = chatType === "group" || chatType === "supergroup";
-    if (inGroupChatFree && chatLinkedGroupId) {
-      const isMemberOfLinkedGroup = userGroups.some((g) => g.id === chatLinkedGroupId);
-      if (!isMemberOfLinkedGroup) {
-        await sendMessage(token, chatId,
-          "You’re not a member of the Saven group linked to this chat. Ask the admin to add you to that group in the Saven app (Settings or group members), then you can add transactions here.");
-        return;
-      }
+  const inGroupChatFree = chatType === "group" || chatType === "supergroup";
+  if (inGroupChatFree && chatLinkedGroupId) {
+    const isMemberOfLinkedGroup = userGroups.some((g) => g.id === chatLinkedGroupId);
+    if (!isMemberOfLinkedGroup) {
+      await sendMessage(
+        token,
+        chatId,
+        "You’re not a member of the Saven group linked to this chat. Ask the admin to add you to that group in the Saven app (Settings or group members), then you can add transactions here."
+      );
+      return;
     }
+  }
   if (inGroupChatFree && !chatLinkedGroupId) {
-      await sendMessage(token, chatId,
-        "This chat isn’t linked to a shared Saven group. To record everyone’s spend here into one group:\n" +
-        "1) In Saven app: Settings → Link Telegram group → pick the group → generate code.\n" +
-        "2) Here, have an admin run: /linkgroup &lt;code&gt;\n" +
-        "Then everyone in this chat can add spend to that same Saven group.");
+    await sendMessage(token, chatId,
+      "This chat isn’t linked to a shared Saven group. To record everyone’s spend here into one group:\n" +
+      "1) In Saven app: Settings → Link Telegram group → pick the group → generate code.\n" +
+      "2) Here, have an admin run: /linkgroup &lt;code&gt;\n" +
+      "Then everyone in this chat can add spend to that same Saven group.");
     return;
   }
   let categoryNames = [];
+  const groupNames = userGroups.map((g) => g.name).filter(Boolean);
   const defaultGroupIdForNlp = resolveGroupId(userGroups, {
     groupHint: null,
     defaultGroupId: linkRecord?.defaultGroupId,
@@ -519,7 +551,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
   console.log("[Telegram] free-text: trying GPT-4o mini");
   try {
     const telegramNlp = require("./telegramNlp");
-    free = await telegramNlp.extract(text, { todayDate: todayStr(), categoryNames });
+    free = await telegramNlp.extract(text, { todayDate: todayStr(), categoryNames, groupNames });
   } catch (e) {
     console.error("[Telegram] free-text: NLP extract error:", e.message);
   }
@@ -549,7 +581,13 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     const groupName = userGroups.find((g) => g.id === groupId)?.name || groupId;
     const createRes = await transactions.create(
       { groupId },
-      { amount: free.amount, date: free.date, categoryId, note: free.fromNlp ? (free.note ?? "") : "via Telegram (free text)" },
+      {
+        amount: free.amount,
+        date: free.date,
+        categoryId,
+        note: free.fromNlp ? (free.note ?? "") : "via Telegram (free text)",
+        paymentMode: free.paymentMode || "",
+      },
       userId
     );
     if (createRes.statusCode === 201) {
@@ -561,6 +599,9 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
       }
       const tx = body.transaction;
       const noteText = tx?.note && typeof tx.note === "string" && tx.note.trim() ? tx.note.trim() : "—";
+      const paymentText = tx?.paymentMode && typeof tx.paymentMode === "string" && tx.paymentMode.trim()
+        ? tx.paymentMode.trim()
+        : "—";
       await sendMessage(
         token,
         chatId,
@@ -568,6 +609,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
           `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
           `• Date: ${tx.date}`,
           `• Category: ${categoryName} (${tx.categoryId})`,
+          `• Payment mode: ${paymentText}`,
           `• Note: ${noteText}`,
           `• Submitted by: You`,
         ].join("\n")

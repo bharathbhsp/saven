@@ -68,6 +68,7 @@ export default function AddTransaction() {
           date,
           categoryId,
           note: note.trim() || undefined,
+          paymentMode: "", // future: add input; for now explicit default
         }),
       });
       navigate("/");

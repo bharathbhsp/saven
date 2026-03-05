@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [recent, setRecent] = useState([]);
   const [todayTotal, setTodayTotal] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
   const [categoryIdToName, setCategoryIdToName] = useState({});
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function Dashboard() {
     if (!groups.length) {
       setRecent([]);
       setTodayTotal(0);
+      setTodayCount(0);
       setCategoryIdToName({});
       return;
     }
@@ -62,7 +64,9 @@ export default function Dashboard() {
           return tb - ta;
         });
         const top5 = withGroup.slice(0, 5);
-        const todaySum = withGroup.filter((t) => t.date === todayStr).reduce((s, t) => s + (t.amount || 0), 0);
+        const todays = withGroup.filter((t) => t.date === todayStr);
+        const todaySum = todays.reduce((s, t) => s + (t.amount || 0), 0);
+        const todayNum = todays.length;
         const catMap = {};
         catResults.forEach((data) => {
           (data.categories || []).forEach((c) => {
@@ -71,11 +75,13 @@ export default function Dashboard() {
         });
         setRecent(top5);
         setTodayTotal(todaySum);
+        setTodayCount(todayNum);
         setCategoryIdToName(catMap);
       } catch (_) {
         if (!cancelled) {
           setRecent([]);
           setTodayTotal(0);
+          setTodayCount(0);
           setCategoryIdToName({});
         }
       }
@@ -114,7 +120,12 @@ export default function Dashboard() {
         <div className="space-y-8">
           <section>
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">Today</h2>
-            <p className="text-2xl font-semibold text-foreground">{todayTotal.toFixed(2)}</p>
+            <p className="text-2xl font-semibold text-foreground">
+              {todayTotal.toFixed(2)}{" "}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({todayCount} {todayCount === 1 ? "transaction" : "transactions"})
+              </span>
+            </p>
           </section>
 
           <section>

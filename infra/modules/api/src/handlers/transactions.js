@@ -65,6 +65,7 @@ async function create(params, body, userId) {
     createdAt: ts,
     updatedAt: ts,
     note: (body.note && String(body.note)) || undefined,
+    paymentMode: typeof body.paymentMode === "string" ? body.paymentMode : "",
   };
   await doc.put({ TableName: TABLES.transactions, Item: item }).promise();
   return json(201, { transaction: item });
@@ -112,6 +113,11 @@ async function update(params, body, userId) {
     updates.push("#note = :note");
     names["#note"] = "note";
     values[":note"] = body.note == null ? null : String(body.note);
+  }
+  if (body.paymentMode !== undefined) {
+    updates.push("#paymentMode = :pm");
+    names["#paymentMode"] = "paymentMode";
+    values[":pm"] = body.paymentMode == null ? "" : String(body.paymentMode);
   }
   if (updates.length === 0) return json(200, { transaction: existing.Item });
   updates.push("updatedAt = :t");

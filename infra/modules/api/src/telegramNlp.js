@@ -32,34 +32,41 @@ async function getOpenAiKey() {
 }
 
 const SYSTEM_PROMPT = `You extract spending/expense data from short user messages. Reply with JSON only, no other text.
-Output shape: { "amount": number, "categoryHint": string, "date": "YYYY-MM-DD", "note": string or null, "groupHint": string or null }
+Output shape: { "amount": number, "categoryHint": string, "date": "YYYY-MM-DD", "note": string or null, "groupHint": string or null, "paymentMode": string or null }
 - amount: positive number (currency units). Required.
 - categoryHint: MUST be one of the provided Categories if the expense clearly fits; otherwise a short label (e.g. "coffee", "groceries"). Use "Other" only if nothing fits.
 - date: ISO date YYYY-MM-DD. Use today if not stated; "yesterday" = yesterday's date.
 - note: a short human-readable description of the expense (e.g. "Coffee at Blue Tokai", "Groceries at supermarket"). Generate from the message; do not use "via Telegram" or generic placeholders. Use null only if the message has no describable detail.
-- groupHint: optional group name if the user mentioned one (e.g. "Household"); null otherwise.
+- groupHint: optional group name for WHICH Saven group this should be recorded to. Only set groupHint when the message clearly refers to a group, e.g. using @GroupName or by naming a group from the provided list. When you set groupHint, it MUST exactly match one of the provided group names (case-sensitive) so the app can resolve it; otherwise use null.
+- paymentMode: optional payment mode for HOW the expense was paid. When obvious from the message (e.g. "via UPI", "by cash", "credit card"), set this to one of exactly: "UPI", "Cash", "Credit card", "Debit card", "Netbanking", "Wallet", "Other". If the payment method is not clear, use null.
 If the message is not about recording a spend/expense, return { "amount": null } to indicate no transaction.`;
 
 /**
  * Call GPT-4o mini to extract transaction fields from user message.
  * @param {string} userMessage - Raw message from Telegram
- * @param {{ todayDate: string, categoryNames?: string[] }} options - todayDate in YYYY-MM-DD; optional category list for context
- * @returns {Promise<{ amount: number, categoryHint: string, date: string, note?: string|null, groupHint?: string|null, fromNlp: true } | null>}
+ * @param {{ todayDate: string, categoryNames?: string[], groupNames?: string[] }} options - todayDate in YYYY-MM-DD; optional category and group lists for context
+ * @returns {Promise<{ amount: number, categoryHint: string, date: string, note?: string|null, groupHint?: string|null, paymentMode?: string|null, fromNlp: true } | null>}
  */
 async function extract(userMessage, options = {}) {
-  const { todayDate, categoryNames } = options;
+  const { todayDate, categoryNames, groupNames } = options;
   const key = await getOpenAiKey();
   if (!key) {
     console.log("[Telegram NLP] GPT-4o mini skipped: no API key");
     return null;
   }
 
-  console.log("[Telegram NLP] Calling GPT-4o mini for free-text extraction", { categoryCount: categoryNames?.length ?? 0 });
+  console.log("[Telegram NLP] Calling GPT-4o mini for free-text extraction", {
+    categoryCount: categoryNames?.length ?? 0,
+    groupCount: groupNames?.length ?? 0,
+  });
 
   const userContent = [
     `Today's date: ${todayDate}.`,
     categoryNames?.length
       ? `Categories (pick categoryHint from this exact list when the expense fits): ${categoryNames.join(", ")}.`
+      : "",
+    groupNames?.length
+      ? `Saven groups for this user (if the message clearly refers to one of these, set groupHint to that exact group name): ${groupNames.join(", ")}.`
       : "",
     `User message: "${userMessage}"`,
   ].filter(Boolean).join("\n");
@@ -120,15 +127,30 @@ async function extract(userMessage, options = {}) {
     ? parsed.date
     : todayDate;
 
+  const allowedPaymentModes = ["UPI", "Cash", "Credit card", "Debit card", "Netbanking", "Wallet", "Other"];
+  let paymentMode = null;
+  if (typeof parsed.paymentMode === "string" && parsed.paymentMode.trim()) {
+    const pm = parsed.paymentMode.trim().toLowerCase();
+    const matched = allowedPaymentModes.find((m) => m.toLowerCase() === pm);
+    paymentMode = matched || null;
+  }
+
   const result = {
     amount,
     categoryHint: typeof parsed.categoryHint === "string" && parsed.categoryHint.trim() ? parsed.categoryHint.trim() : "Other",
     date,
     note: typeof parsed.note === "string" ? parsed.note.trim() || null : null,
     groupHint: typeof parsed.groupHint === "string" && parsed.groupHint.trim() ? parsed.groupHint.trim() : undefined,
+    paymentMode: paymentMode,
     fromNlp: true,
   };
-  console.log("[Telegram NLP] GPT-4o mini extracted", { amount: result.amount, categoryHint: result.categoryHint, date: result.date, hasNote: !!result.note });
+  console.log("[Telegram NLP] GPT-4o mini extracted", {
+    amount: result.amount,
+    categoryHint: result.categoryHint,
+    date: result.date,
+    hasNote: !!result.note,
+    hasPaymentMode: !!result.paymentMode,
+  });
   return result;
 }
 
