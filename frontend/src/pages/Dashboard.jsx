@@ -20,6 +20,10 @@ export default function Dashboard() {
   const [recent, setRecent] = useState([]);
   const [todayTotal, setTodayTotal] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
+  const [monthTotal, setMonthTotal] = useState(0);
+  const [monthCount, setMonthCount] = useState(0);
+  const [groupTotals, setGroupTotals] = useState([]);
+  const [recentCategories, setRecentCategories] = useState([]);
   const [categoryIdToName, setCategoryIdToName] = useState({});
 
   useEffect(() => {
@@ -43,6 +47,10 @@ export default function Dashboard() {
       setRecent([]);
       setTodayTotal(0);
       setTodayCount(0);
+      setMonthTotal(0);
+      setMonthCount(0);
+      setGroupTotals([]);
+      setRecentCategories([]);
       setCategoryIdToName({});
       return;
     }
@@ -67,21 +75,68 @@ export default function Dashboard() {
         const todays = withGroup.filter((t) => t.date === todayStr);
         const todaySum = todays.reduce((s, t) => s + (t.amount || 0), 0);
         const todayNum = todays.length;
+        const monthSum = withGroup.reduce((s, t) => s + (t.amount || 0), 0);
+        const monthNum = withGroup.length;
         const catMap = {};
         catResults.forEach((data) => {
           (data.categories || []).forEach((c) => {
             if (!catMap[c.categoryId]) catMap[c.categoryId] = c.name;
           });
         });
+        const byGroup = {};
+        withGroup.forEach((t) => {
+          const gid = t._groupId;
+          const gname = t._groupName || gid;
+          if (!byGroup[gid]) byGroup[gid] = { groupName: gname, total: 0, lastUsed: 0 };
+          byGroup[gid].total += t.amount || 0;
+          const ts = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+          if (ts > byGroup[gid].lastUsed) byGroup[gid].lastUsed = ts;
+        });
+        const groupTotalsList = Object.entries(byGroup)
+          .map(([groupId, { groupName, total, lastUsed }]) => ({
+            groupId,
+            groupName,
+            total,
+            lastUsed,
+          }))
+          .sort((a, b) => b.lastUsed - a.lastUsed)
+          .slice(0, 6);
+
+        const byCategory = {};
+        withGroup.forEach((t) => {
+          const cid = t.categoryId || "default-other";
+          if (!byCategory[cid]) byCategory[cid] = { total: 0, lastUsed: 0 };
+          byCategory[cid].total += t.amount || 0;
+          const ts = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+          if (ts > byCategory[cid].lastUsed) byCategory[cid].lastUsed = ts;
+        });
+        const recentCategoriesList = Object.entries(byCategory)
+          .map(([categoryId, { total, lastUsed }]) => ({
+            categoryId,
+            categoryName: catMap[categoryId] || categoryId,
+            total,
+            lastUsed,
+          }))
+          .sort((a, b) => b.lastUsed - a.lastUsed)
+          .slice(0, 3);
+
         setRecent(top5);
         setTodayTotal(todaySum);
         setTodayCount(todayNum);
+        setMonthTotal(monthSum);
+        setMonthCount(monthNum);
+        setGroupTotals(groupTotalsList);
+        setRecentCategories(recentCategoriesList);
         setCategoryIdToName(catMap);
       } catch (_) {
         if (!cancelled) {
           setRecent([]);
           setTodayTotal(0);
           setTodayCount(0);
+          setMonthTotal(0);
+          setMonthCount(0);
+          setGroupTotals([]);
+          setRecentCategories([]);
           setCategoryIdToName({});
         }
       }
@@ -118,15 +173,74 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="space-y-8">
-          <section>
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">Today</h2>
-            <p className="text-2xl font-semibold text-foreground">
-              {todayTotal.toFixed(2)}{" "}
-              <span className="text-sm font-normal text-muted-foreground">
-                ({todayCount} {todayCount === 1 ? "transaction" : "transactions"})
-              </span>
-            </p>
-          </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Today</p>
+              <p className="text-2xl font-semibold text-foreground">
+                {todayTotal.toFixed(2)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {todayCount} {todayCount === 1 ? "transaction" : "transactions"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                This month
+              </p>
+              <p className="text-2xl font-semibold text-foreground">
+                {monthTotal.toFixed(2)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {monthCount} {monthCount === 1 ? "transaction" : "transactions"}
+              </p>
+            </div>
+          </div>
+
+          {groupTotals.length > 0 && (
+            <section>
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                By group (most recent)
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {groupTotals.map(({ groupId, groupName, total }) => (
+                  <div
+                    key={groupId}
+                    className="rounded-xl border border-border bg-muted/20 p-4"
+                  >
+                    <p className="text-sm font-medium text-muted-foreground truncate">
+                      {groupName}
+                    </p>
+                    <p className="text-xl font-semibold text-foreground mt-0.5">
+                      {total.toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {recentCategories.length > 0 && (
+            <section>
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Recent categories
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {recentCategories.map(({ categoryId, categoryName, total }) => (
+                  <div
+                    key={categoryId}
+                    className="rounded-xl border border-border bg-muted/20 p-4"
+                  >
+                    <p className="text-sm font-medium text-muted-foreground truncate">
+                      {categoryName}
+                    </p>
+                    <p className="text-xl font-semibold text-foreground mt-0.5">
+                      {total.toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Recent transactions</h2>

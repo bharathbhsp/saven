@@ -26,11 +26,16 @@ function getChatAndUser(update) {
   const msg = update.message || update.edited_message;
   if (msg) {
     const chat = msg.chat || {};
+    const from = msg.from || {};
+    const nameParts = [from.first_name, from.last_name].filter(Boolean);
+    const fromName =
+      (nameParts.length ? nameParts.join(" ") : null) || (from.username ? `@${from.username}` : "") || "";
     return {
       chatId: chat.id,
       chatType: chat.type || "private",
       telegramUserId: String(msg.from?.id ?? ""),
       text: (msg.text || "").trim(),
+      fromName,
     };
   }
   return null;
@@ -206,7 +211,7 @@ async function resolveCategoryId(groupId, categoryHint, userId) {
   return { categoryId: "default-other", categoryName: "Other" };
 }
 
-async function handleMessage(telegramUserId, chatId, chatType, text, token, userId) {
+async function handleMessage(telegramUserId, chatId, chatType, text, token, userId, fromName) {
   const groups = require("./handlers/groups");
   const transactions = require("./handlers/transactions");
   const categories = require("./handlers/categories");
@@ -305,15 +310,16 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
       }
       const tx = body.transaction;
       const noteText = tx?.note && typeof tx.note === "string" && tx.note.trim() ? tx.note.trim() : "—";
+      const submittedBy = fromName && fromName.trim() ? fromName.trim() : "Unknown";
       await sendMessage(
         token,
         chatId,
         [
           `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
           `• Date: ${tx.date}`,
-          `• Category: ${categoryName} (${tx.categoryId})`,
+          `• Category: ${categoryName}`,
           `• Note: ${noteText}`,
-          `• Submitted by: You`,
+          `• Submitted by: ${submittedBy}`,
         ].join("\n")
       );
     } else {
@@ -602,16 +608,17 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
       const paymentText = tx?.paymentMode && typeof tx.paymentMode === "string" && tx.paymentMode.trim()
         ? tx.paymentMode.trim()
         : "—";
+      const submittedBy = fromName && fromName.trim() ? fromName.trim() : "Unknown";
       await sendMessage(
         token,
         chatId,
         [
           `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
           `• Date: ${tx.date}`,
-          `• Category: ${categoryName} (${tx.categoryId})`,
+          `• Category: ${categoryName}`,
           `• Payment mode: ${paymentText}`,
           `• Note: ${noteText}`,
-          `• Submitted by: You`,
+          `• Submitted by: ${submittedBy}`,
         ].join("\n")
       );
     } else {
@@ -724,7 +731,7 @@ exports.handle = async (event) => {
   const ctx = getChatAndUser(update);
   if (!ctx || ctx.chatId == null) return { statusCode: 200, body: "" };
 
-  const { chatId, chatType, telegramUserId, text } = ctx;
+  const { chatId, chatType, telegramUserId, text, fromName } = ctx;
   let userId = await getLinkedUserId(telegramUserId);
 
   if (text.startsWith("/link ")) {
@@ -755,6 +762,6 @@ exports.handle = async (event) => {
     return { statusCode: 200, body: "" };
   }
 
-  if (text) await handleMessage(telegramUserId, chatId, chatType, text, token, userId);
+  if (text) await handleMessage(telegramUserId, chatId, chatType, text, token, userId, fromName);
   return { statusCode: 200, body: "" };
 };
