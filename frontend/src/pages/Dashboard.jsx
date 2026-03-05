@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
@@ -9,11 +18,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recent, setRecent] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [createName, setCreateName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [todayTotal, setTodayTotal] = useState(0);
+  const [categoryIdToName, setCategoryIdToName] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -22,8 +28,6 @@ export default function Dashboard() {
         setError(null);
         const data = await api(() => token, "/groups");
         if (!cancelled) setGroups(data.groups || []);
-        if (!cancelled && (data.groups || []).length > 0 && !selectedGroup)
-          setSelectedGroup(data.groups[0].id);
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load groups");
       } finally {
@@ -34,46 +38,50 @@ export default function Dashboard() {
   }, [token]);
 
   useEffect(() => {
-    if (!selectedGroup) return;
+    if (!groups.length) {
+      setRecent([]);
+      setTodayTotal(0);
+      setCategoryIdToName({});
+      return;
+    }
     let cancelled = false;
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const todayStr = now.toISOString().slice(0, 10);
     (async () => {
       try {
-        const [txData, catData] = await Promise.all([
-          api(() => token, `/groups/${selectedGroup}/transactions?month=${month}`),
-          api(() => token, `/groups/${selectedGroup}/categories`),
+        const [txResults, catResults] = await Promise.all([
+          Promise.all(groups.map((g) => api(() => token, `/groups/${g.id}/transactions?month=${month}`))),
+          Promise.all(groups.map((g) => api(() => token, `/groups/${g.id}/categories`))),
         ]);
-        if (!cancelled) setRecent((txData.transactions || []).slice(0, 5));
-        if (!cancelled) setCategories(catData.categories || []);
+        if (cancelled) return;
+        const withGroup = txResults.flatMap((data, i) => (data.transactions || []).map((t) => ({ ...t, _groupId: groups[i].id, _groupName: groups[i].name })));
+        withGroup.sort((a, b) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+        const top5 = withGroup.slice(0, 5);
+        const todaySum = withGroup.filter((t) => t.date === todayStr).reduce((s, t) => s + (t.amount || 0), 0);
+        const catMap = {};
+        catResults.forEach((data) => {
+          (data.categories || []).forEach((c) => {
+            if (!catMap[c.categoryId]) catMap[c.categoryId] = c.name;
+          });
+        });
+        setRecent(top5);
+        setTodayTotal(todaySum);
+        setCategoryIdToName(catMap);
       } catch (_) {
-        if (!cancelled) setRecent([]);
-        if (!cancelled) setCategories([]);
+        if (!cancelled) {
+          setRecent([]);
+          setTodayTotal(0);
+          setCategoryIdToName({});
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, [token, selectedGroup]);
-
-  async function handleCreateGroup(e) {
-    e.preventDefault();
-    if (!createName.trim()) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const data = await api(() => token, "/groups", {
-        method: "POST",
-        body: JSON.stringify({ name: createName.trim() }),
-      });
-      setGroups((prev) => [...prev, data.group]);
-      setSelectedGroup(data.group.id);
-      setCreateName("");
-      setShowCreateGroup(false);
-    } catch (e) {
-      setError(e.message || "Failed to create group");
-    } finally {
-      setCreating(false);
-    }
-  }
+  }, [token, groups]);
 
   if (loading) {
     return (
@@ -88,9 +96,6 @@ export default function Dashboard() {
     );
   }
 
-  const totalMonth = recent.reduce((s, t) => s + (t.amount || 0), 0);
-  const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
-
   return (
     <div>
       <h1 className="text-xl font-semibold text-foreground mb-6">Dashboard</h1>
@@ -98,125 +103,57 @@ export default function Dashboard() {
       {groups.length === 0 ? (
         <div className="space-y-4">
           <p className="text-muted-foreground">Create a group to start tracking spending.</p>
-          <form onSubmit={handleCreateGroup} className="max-w-xs space-y-4">
-            {error && (
-              <div className="px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm">
-                {error}
-              </div>
-            )}
-            <label className="block">
-              <span className="text-sm font-medium text-foreground block mb-1">Group name</span>
-              <input
-                type="text"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="e.g. Household"
-                required
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={creating}
-              className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
-            >
-              {creating ? "Creating…" : "Create group"}
-            </button>
-          </form>
+          <Link
+            to="/groups"
+            className="inline-flex py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Go to Groups to create one
+          </Link>
         </div>
       ) : (
         <div className="space-y-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm font-medium text-muted-foreground">Group</label>
-            <select
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setShowCreateGroup((v) => !v)}
-              className="py-2 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
-            >
-              {showCreateGroup ? "Cancel" : "New group"}
-            </button>
-          </div>
-
-          {showCreateGroup && (
-            <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-4">
-              <p className="text-sm text-muted-foreground">Create another group to track spending separately.</p>
-              <form onSubmit={handleCreateGroup} className="flex flex-wrap items-end gap-3">
-                <label className="flex-1 min-w-[12rem]">
-                  <span className="text-sm font-medium text-foreground block mb-1">Group name</span>
-                  <input
-                    type="text"
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
-                    placeholder="e.g. Travel"
-                    required
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
-                >
-                  {creating ? "Creating…" : "Create group"}
-                </button>
-              </form>
-              {error && (
-                <div className="px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm">{error}</div>
-              )}
-            </div>
-          )}
-
           <section>
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">This month</h2>
-            <p className="text-2xl font-semibold text-foreground">{totalMonth.toFixed(2)}</p>
+            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">Today</h2>
+            <p className="text-2xl font-semibold text-foreground">{todayTotal.toFixed(2)}</p>
           </section>
 
           <section>
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">Recent transactions</h2>
             {recent.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No transactions this month.</p>
+              <p className="text-muted-foreground text-sm">No recent transactions.</p>
             ) : (
-              <div className="border border-border rounded-lg overflow-hidden bg-card">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50 text-left text-muted-foreground font-medium">
-                      <th className="px-4 py-2.5 w-24">Date</th>
-                      <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
-                      <th className="px-4 py-2.5">Category</th>
-                      <th className="px-4 py-2.5">Note</th>
-                      <th className="px-4 py-2.5 w-36">Date of entry</th>
-                      <th className="px-4 py-2.5">Submitted by</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+              <TableContainer component={Paper} className="-mx-4 sm:mx-0" sx={{ maxWidth: "100%" }}>
+                <Table size="small" stickyHeader aria-label="Recent transactions">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
+                      <TableCell>Group</TableCell>
+                      <TableCell>Amount</TableCell>
+                      <TableCell>Category</TableCell>
+                      <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {recent.map((t) => (
-                      <tr key={t.sk || t.transactionId}>
-                        <td className="px-4 py-3 text-muted-foreground">{t.date}</td>
-                        <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
-                        <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                      <TableRow key={`${t._groupId}-${t.sk || t.transactionId}`} hover>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                           {t.createdAt
                             ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
                             : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                        </TableCell>
+                        <TableCell>{t._groupName}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t.amount}</TableCell>
+                        <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
+                        <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                           {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </section>
 
@@ -229,7 +166,7 @@ export default function Dashboard() {
             </Link>
             <Link
               to="/transactions"
-              className="inline-flex py-2 px-4 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+              className="inline-flex py-2 px-4 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               View all & filter
             </Link>

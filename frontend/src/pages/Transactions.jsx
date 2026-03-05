@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
@@ -96,6 +105,12 @@ export default function Transactions() {
 
   const total = transactions.reduce((s, t) => s + (t.amount || 0), 0);
   const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
+  // Sort by date of entry (createdAt), latest first; items without createdAt go last
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
 
   function exportStartEnd() {
     if (filter === "day") return { startDate: day, endDate: day };
@@ -162,7 +177,7 @@ export default function Transactions() {
               onChange={(e) => setFilter(e.target.value)}
               className={inputClass}
             >
-              <option value="day">Day</option>
+              <option value="day">Daily</option>
               <option value="month">Month</option>
               <option value="range">Date range</option>
             </select>
@@ -233,38 +248,36 @@ export default function Transactions() {
               {transactions.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No transactions for this filter.</p>
               ) : (
-                <div className="border border-border rounded-lg overflow-hidden bg-card">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/50 text-left text-muted-foreground font-medium">
-                        <th className="px-4 py-2.5 w-24">Date</th>
-                        <th className="px-4 py-2.5 min-w-[4rem]">Amount</th>
-                        <th className="px-4 py-2.5">Category</th>
-                        <th className="px-4 py-2.5">Note</th>
-                        <th className="px-4 py-2.5 w-36">Date of entry</th>
-                        <th className="px-4 py-2.5">Submitted by</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {transactions.map((t) => (
-                        <tr key={t.sk || t.transactionId}>
-                          <td className="px-4 py-3 text-muted-foreground">{t.date}</td>
-                          <td className="px-4 py-3 font-medium text-foreground">{t.amount}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{categoryIdToName[t.categoryId] ?? t.categoryId}</td>
-                          <td className="px-4 py-3 text-muted-foreground/80 truncate max-w-[12rem]">{t.note ?? "—"}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                <TableContainer component={Paper} className="-mx-4 sm:mx-0" sx={{ maxWidth: "100%" }}>
+                  <Table size="small" stickyHeader aria-label="Transactions">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sortedTransactions.map((t) => (
+                        <TableRow key={t.sk || t.transactionId} hover>
+                          <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                             {t.createdAt
                               ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
                               : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{t.amount}</TableCell>
+                          <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
+                          <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                             {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               )}
             </>
           )}

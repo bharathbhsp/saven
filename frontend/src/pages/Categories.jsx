@@ -1,4 +1,13 @@
 import { useState, useEffect } from "react";
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
@@ -174,26 +183,24 @@ export default function Categories() {
               ) : categories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No categories yet.</p>
               ) : (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Name</th>
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Scope</th>
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Category ID</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {categories.map((cat) => (
-                      <tr key={`${cat.groupId}-${cat.categoryId}`} className="border-b border-border last:border-b-0">
-                        <td className="py-2 pr-4 text-foreground">{cat.name}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{scopeForCategory(cat)}</td>
-                        <td className="py-2 pr-4 text-muted-foreground font-mono text-xs break-all">
-                          {cat.categoryId}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <TableContainer component={Paper} className="-mx-4 sm:mx-0" sx={{ maxWidth: "100%" }}>
+                  <Table size="small" stickyHeader aria-label="Categories">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Scope</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {categories.map((cat) => (
+                        <TableRow key={`${cat.groupId}-${cat.categoryId}`} hover>
+                          <TableCell>{cat.name}</TableCell>
+                          <TableCell>{scopeForCategory(cat)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               )}
             </section>
           )}

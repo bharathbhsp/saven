@@ -117,8 +117,12 @@ function parseAddArgs(text) {
   let groupHint = null;
   for (let i = 2; i < parts.length; i++) {
     const p = parts[i];
-    if (DATE_RE.test(p)) date = p;
-    else if (p && p.replace(/^@/, "").trim()) groupHint = p.replace(/^@/, "").trim();
+    if (DATE_RE.test(p)) {
+      date = p;
+    } else if (!groupHint && /^@/.test(p)) {
+      const cleaned = p.replace(/^@/, "").trim();
+      if (cleaned) groupHint = cleaned;
+    }
   }
   return { amount, categoryHint: categoryPart, date, groupHint };
 }
@@ -134,9 +138,16 @@ function parseFreeText(text) {
     const yesterday = rest.match(/(yesterday|yday)/i);
     if (yesterday) date = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     rest = rest.replace(/(yesterday|yday)\s*/gi, "").trim();
+    let groupHint = null;
     const lastSpace = rest.lastIndexOf(" ");
-    const groupHint = lastSpace > 0 ? rest.slice(lastSpace + 1).replace(/^@/, "").trim() : null;
-    const catPart = (groupHint ? rest.slice(0, lastSpace).trim() : rest) || "Other";
+    if (lastSpace > 0) {
+      const maybeGroup = rest.slice(lastSpace + 1).trim();
+      if (maybeGroup.startsWith("@") && maybeGroup.length > 1) {
+        groupHint = maybeGroup.slice(1);
+        rest = rest.slice(0, lastSpace).trim();
+      }
+    }
+    const catPart = rest || "Other";
     return { amount, categoryHint: catPart, date, groupHint: groupHint || undefined };
   }
   const simple = t.match(/^(\d+(?:\.\d+)?)\s+(?:on\s+)?(.+?)(?:\s+(yesterday|today))?$/i);
@@ -145,16 +156,22 @@ function parseFreeText(text) {
     let date = todayStr();
     if (simple[3] && simple[3].toLowerCase() === "yesterday") date = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     let catPart = simple[2].trim();
+    let groupHint = null;
     const lastSpace = catPart.lastIndexOf(" ");
-    const groupHint = lastSpace > 0 ? catPart.slice(lastSpace + 1).replace(/^@/, "").trim() : null;
-    if (groupHint) catPart = catPart.slice(0, lastSpace).trim();
+    if (lastSpace > 0) {
+      const maybeGroup = catPart.slice(lastSpace + 1).trim();
+      if (maybeGroup.startsWith("@") && maybeGroup.length > 1) {
+        groupHint = maybeGroup.slice(1);
+        catPart = catPart.slice(0, lastSpace).trim();
+      }
+    }
     return { amount, categoryHint: catPart || "Other", date, groupHint: groupHint || undefined };
   }
-  const withGroup = t.match(/^(\d+(?:\.\d+)?)\s+(.+?)\s+([A-Za-z0-9_-]+)$/);
+  const withGroup = t.match(/^(\d+(?:\.\d+)?)\s+(.+?)\s+@([A-Za-z0-9_-]+)$/);
   if (withGroup) {
     const amount = parseFloat(withGroup[1]);
     const mid = withGroup[2].trim();
-    const last = withGroup[3].replace(/^@/, "");
+    const last = withGroup[3];
     if (!DATE_RE.test(last)) return { amount, categoryHint: mid, date: todayStr(), groupHint: last };
   }
   const justAmount = t.match(/^(\d+(?:\.\d+)?)\s*$/);
@@ -163,7 +180,6 @@ function parseFreeText(text) {
 }
 
 async function resolveCategoryId(groupId, categoryHint, userId) {
-  const groups = require("./handlers/groups");
   const categories = require("./handlers/categories");
   const listRes = await categories.list({ groupId }, {}, userId);
   if (listRes.statusCode !== 200) return null;
@@ -176,12 +192,18 @@ async function resolveCategoryId(groupId, categoryHint, userId) {
   const cats = list.categories || [];
   const hint = categoryHint.toLowerCase();
   const byName = cats.find((c) => c.name && c.name.toLowerCase() === hint);
-  if (byName) return byName.categoryId;
+  if (byName) {
+    return { categoryId: byName.categoryId, categoryName: byName.name || byName.categoryId };
+  }
   const byId = cats.find((c) => c.categoryId === categoryHint);
-  if (byId) return byId.categoryId;
+  if (byId) {
+    return { categoryId: byId.categoryId, categoryName: byId.name || byId.categoryId };
+  }
   const fuzzy = cats.find((c) => c.name && c.name.toLowerCase().includes(hint));
-  if (fuzzy) return fuzzy.categoryId;
-  return "default-other";
+  if (fuzzy) {
+    return { categoryId: fuzzy.categoryId, categoryName: fuzzy.name || fuzzy.categoryId };
+  }
+  return { categoryId: "default-other", categoryName: "Other" };
 }
 
 async function handleMessage(telegramUserId, chatId, chatType, text, token, userId) {
@@ -265,7 +287,10 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
       await sendMessage(token, chatId, "Could not pick a group. Set a default in Settings or use: /add amount category GroupName");
       return;
     }
-    const categoryId = await resolveCategoryId(groupId, parsed.categoryHint, userId);
+    const resolvedCategory = await resolveCategoryId(groupId, parsed.categoryHint, userId);
+    const categoryId = resolvedCategory?.categoryId || "default-other";
+    const categoryName = resolvedCategory?.categoryName || parsed.categoryHint;
+    const groupName = userGroups.find((g) => g.id === groupId)?.name || groupId;
     const createRes = await transactions.create(
       { groupId },
       { amount: parsed.amount, date: parsed.date, categoryId, note: "via Telegram" },
@@ -279,7 +304,18 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         body = {};
       }
       const tx = body.transaction;
-      await sendMessage(token, chatId, `✅ Recorded ${tx.amount} on ${tx.date} (${tx.categoryId}).`);
+      const noteText = tx?.note && typeof tx.note === "string" && tx.note.trim() ? tx.note.trim() : "—";
+      await sendMessage(
+        token,
+        chatId,
+        [
+          `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
+          `• Date: ${tx.date}`,
+          `• Category: ${categoryName} (${tx.categoryId})`,
+          `• Note: ${noteText}`,
+          `• Submitted by: You`,
+        ].join("\n")
+      );
     } else {
       let msg = "Failed to add transaction.";
       if (createRes.statusCode === 403) {
@@ -507,7 +543,10 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
       await sendMessage(token, chatId, "Could not pick a group. Set a default in Settings or add group name: 50 coffee GroupName");
       return;
     }
-    const categoryId = await resolveCategoryId(groupId, free.categoryHint, userId);
+    const resolvedCategory = await resolveCategoryId(groupId, free.categoryHint, userId);
+    const categoryId = resolvedCategory?.categoryId || "default-other";
+    const categoryName = resolvedCategory?.categoryName || free.categoryHint;
+    const groupName = userGroups.find((g) => g.id === groupId)?.name || groupId;
     const createRes = await transactions.create(
       { groupId },
       { amount: free.amount, date: free.date, categoryId, note: free.fromNlp ? (free.note ?? "") : "via Telegram (free text)" },
@@ -521,7 +560,18 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         body = {};
       }
       const tx = body.transaction;
-      await sendMessage(token, chatId, `✅ Recorded ${tx.amount} on ${tx.date}.`);
+      const noteText = tx?.note && typeof tx.note === "string" && tx.note.trim() ? tx.note.trim() : "—";
+      await sendMessage(
+        token,
+        chatId,
+        [
+          `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
+          `• Date: ${tx.date}`,
+          `• Category: ${categoryName} (${tx.categoryId})`,
+          `• Note: ${noteText}`,
+          `• Submitted by: You`,
+        ].join("\n")
+      );
     } else {
       let msg = "Could not add transaction. Try /add amount category";
       if (createRes.statusCode === 403) {

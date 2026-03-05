@@ -1,4 +1,14 @@
 import { useState, useEffect } from "react";
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+} from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
@@ -16,6 +26,9 @@ export default function Groups() {
 
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +98,27 @@ export default function Groups() {
     }
   }
 
+  async function handleCreateGroup(e) {
+    e.preventDefault();
+    if (!createName.trim()) return;
+    setCreating(true);
+    setError(null);
+    try {
+      const data = await api(() => token, "/groups", {
+        method: "POST",
+        body: JSON.stringify({ name: createName.trim() }),
+      });
+      setGroups((prev) => [...prev, data.group]);
+      setSelectedGroupId(data.group.id);
+      setCreateName("");
+      setShowCreateGroup(false);
+    } catch (e) {
+      setError(e.message || "Failed to create group");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function handleRemoveMember(userId) {
     if (!selectedGroupId) return;
     setError(null);
@@ -117,9 +151,29 @@ export default function Groups() {
       {loadingGroups ? (
         <p className="text-sm text-muted-foreground">Loading groups…</p>
       ) : groups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          You don&apos;t have any groups yet. Create one on the Dashboard, then come back here to manage members.
-        </p>
+        <div className="space-y-4">
+          <p className="text-muted-foreground">Create a group to start tracking spending.</p>
+          <form onSubmit={handleCreateGroup} className="max-w-xs space-y-4">
+            <label className="block">
+              <span className="text-sm font-medium text-foreground block mb-1">Group name</span>
+              <input
+                type="text"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="e.g. Household"
+                required
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={creating}
+              className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+            >
+              {creating ? "Creating…" : "Create group"}
+            </button>
+          </form>
+        </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
@@ -138,7 +192,40 @@ export default function Groups() {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setShowCreateGroup((v) => !v)}
+              className="py-2 px-3 rounded-md border border-input bg-secondary text-secondary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              {showCreateGroup ? "Cancel" : "New group"}
+            </button>
           </div>
+
+          {showCreateGroup && (
+            <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-4">
+              <p className="text-sm text-muted-foreground">Create another group to track spending separately.</p>
+              <form onSubmit={handleCreateGroup} className="flex flex-wrap items-end gap-3">
+                <label className="flex-1 min-w-[12rem]">
+                  <span className="text-sm font-medium text-foreground block mb-1">Group name</span>
+                  <input
+                    type="text"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="e.g. Travel"
+                    required
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+                >
+                  {creating ? "Creating…" : "Create group"}
+                </button>
+              </form>
+            </div>
+          )}
 
           {selectedGroup && (
             <section className="mt-6 bg-card border border-border rounded-lg p-6 space-y-4">
@@ -158,36 +245,34 @@ export default function Groups() {
                 ) : members.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No members yet. Add the first member below.</p>
                 ) : (
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-border text-left">
-                        <th className="py-2 pr-4 font-medium text-muted-foreground">User ID</th>
-                        <th className="py-2 pr-4 font-medium text-muted-foreground">Role</th>
-                        <th className="py-2 pr-4 font-medium text-muted-foreground">Joined at</th>
-                        <th className="py-2 font-medium text-muted-foreground" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {members.map((m) => (
-                        <tr key={m.userId} className="border-b border-border last:border-b-0">
-                          <td className="py-2 pr-4 font-mono text-xs break-all">{m.userId}</td>
-                          <td className="py-2 pr-4 text-muted-foreground">{m.role || "member"}</td>
-                          <td className="py-2 pr-4 text-muted-foreground text-xs">
-                            {m.joinedAt ? new Date(m.joinedAt).toLocaleString() : "—"}
-                          </td>
-                          <td className="py-2 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMember(m.userId)}
-                              className="text-xs text-muted-foreground hover:text-destructive"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <TableContainer component={Paper} className="-mx-4 sm:mx-0" sx={{ maxWidth: "100%" }}>
+                    <Table size="small" stickyHeader aria-label="Group members">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>User ID</TableCell>
+                          <TableCell>Role</TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>Joined at</TableCell>
+                          <TableCell align="right" />
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {members.map((m) => (
+                          <TableRow key={m.userId} hover>
+                            <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>{m.userId}</TableCell>
+                            <TableCell>{m.role || "member"}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
+                              {m.joinedAt ? new Date(m.joinedAt).toLocaleString() : "—"}
+                            </TableCell>
+                            <TableCell align="right">
+                              <Button size="small" color="error" onClick={() => handleRemoveMember(m.userId)}>
+                                Remove
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 )}
               </div>
 
