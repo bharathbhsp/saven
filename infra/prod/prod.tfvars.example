@@ -1,0 +1,19 @@
+# Copy to prod.tfvars and set as needed. Do not commit prod.tfvars if it contains secrets.
+# For secrets use: TF_VAR_telegram_bot_token=... TF_VAR_openai_key=... when running terraform.
+
+aws_region     = "ap-south-2"
+project_name   = "saven"
+environment    = "prod"
+cognito_domain = "saven-auth"
+
+# Gmail / Google login (optional).
+# google_client_id     = "..."
+# google_client_secret = "..."
+
+# Production frontend URL(s) so Cognito login redirect works (avoids redirect_mismatch).
+# extra_callback_urls = ["https://d1lxjif1oy3ll.cloudfront.net/"]
+# extra_logout_urls   = ["https://d1lxjif1oy3ll.cloudfront.net/"]
+
+# Set via TF_VAR_* or CI secrets; avoid putting real values in committed files.
+# telegram_bot_token = ""
+# openai_key         = ""

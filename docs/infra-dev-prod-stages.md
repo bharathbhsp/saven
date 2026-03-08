@@ -1,6 +1,22 @@
 # Dev and prod stages — infra suggestions
 
-Suggestions for running **dev** and **prod** as separate Terraform stages. No code changes are applied here; this is a guide for what to change when you adopt it.
+Suggestions for running **dev** and **prod** as separate Terraform stages.
+
+**We use Option C: separate root module per stage.** Root modules live in `infra/dev/` and `infra/prod/`, each with its own S3 state key and var file. The original `infra/` root (local backend) remains for legacy use.
+
+---
+
+## How we run it (Option C)
+
+- **Dev:**  
+  `cd infra/dev` → `terraform init` → `terraform plan -var-file=dev.tfvars` → `terraform apply -var-file=dev.tfvars`  
+  State: S3 key `saven/dev/terraform.tfstate` (bucket `saven-tfstate`, DynamoDB lock `saven-tfstate-lock`).
+- **Prod:**  
+  `cd infra/prod` → `terraform init` → `terraform plan -var-file=prod.tfvars` → `terraform apply -var-file=prod.tfvars`  
+  State: S3 key `saven/prod/terraform.tfstate`.
+
+Copy `dev.tfvars.example` → `dev.tfvars` and `prod.tfvars.example` → `prod.tfvars` (do not commit tfvars with secrets; use `TF_VAR_*` for secrets).  
+Frontend deploy: `./scripts/deploy-frontend.sh dev` or `./scripts/deploy-frontend.sh prod` to use the correct stage outputs.
 
 ---
 

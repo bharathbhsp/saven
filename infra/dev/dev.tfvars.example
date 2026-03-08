@@ -1,0 +1,19 @@
+# Copy to dev.tfvars and set as needed. Do not commit dev.tfvars if it contains secrets.
+# For secrets use: TF_VAR_telegram_bot_token=... TF_VAR_openai_key=... when running terraform.
+
+aws_region     = "ap-south-2"
+project_name   = "saven"
+environment    = "dev"
+cognito_domain = "saven-auth"
+
+# Gmail / Google login (optional). Leave empty or omit to use only Cognito email sign-in.
+# google_client_id     = "..."
+# google_client_secret = "..."
+
+# Dev frontend URL(s) for Cognito redirect (CloudFront or local).
+# extra_callback_urls = ["https://d123abc.cloudfront.net/"]
+# extra_logout_urls   = ["https://d123abc.cloudfront.net/"]
+
+# Set via TF_VAR_telegram_bot_token or leave empty/placeholder for regex-only.
+# telegram_bot_token = ""
+# openai_key         = ""

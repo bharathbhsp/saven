@@ -19,7 +19,17 @@ Provisions AWS resources per [../docs/dev-phases.md](../docs/dev-phases.md) Phas
 - **Secrets:** SSM Parameter Store (Google credentials, Telegram bot token, optional OpenAI API key for Telegram NLP)
 - **Phase 6 — Telegram bot:** DynamoDB tables `telegram_links`, `telegram_link_codes`; Lambda handles `POST /webhook/telegram`; bot token in Parameter Store. Optional **GPT-4o mini** for free-text parsing (set `openai_key`); falls back to regex if unset. See [Telegram bot](#telegram-bot-phase-6) below.
 
-## Commands
+## Dev and prod (Option C)
+
+We use **separate root modules per stage**: `infra/dev/` and `infra/prod/`, each with its own S3 state key. See [../docs/infra-dev-prod-stages.md](../docs/infra-dev-prod-stages.md).
+
+- **Dev:** `cd infra/dev` → copy `dev.tfvars.example` to `dev.tfvars` → `terraform init` → `terraform plan -var-file=dev.tfvars` → `terraform apply -var-file=dev.tfvars`
+- **Prod:** `cd infra/prod` → copy `prod.tfvars.example` to `prod.tfvars` → `terraform init` → `terraform plan -var-file=prod.tfvars` → `terraform apply -var-file=prod.tfvars`
+- **Deploy frontend:** `./scripts/deploy-frontend.sh dev` or `./scripts/deploy-frontend.sh prod`
+
+The S3 backend (bucket `saven-tfstate`, key `saven/dev/` or `saven/prod/terraform.tfstate`, DynamoDB lock table) must exist before first `terraform init` in `infra/dev` or `infra/prod`.
+
+## Commands (legacy single-stage from infra root)
 
 ```bash
 cd infra
@@ -40,7 +50,8 @@ After apply, run `terraform output` for:
 
 ## Backend (state)
 
-Default is **local** state (`terraform.tfstate` in `infra/`). For team use, create an S3 bucket and DynamoDB table for locking, then in `versions.tf` switch to the commented `backend "s3"` block and run `terraform init -migrate-state`.
+- **infra/dev** and **infra/prod:** use S3 backend (`saven-tfstate`, keys `saven/dev/terraform.tfstate` and `saven/prod/terraform.tfstate`, DynamoDB `saven-tfstate-lock`). Create the bucket and table once if they don’t exist.
+- **infra root (legacy):** default is **local** state (`terraform.tfstate`). To migrate to S3, switch to the commented `backend "s3"` in `versions.tf` and run `terraform init -migrate-state`.
 
 ## Variables
 
@@ -84,5 +95,25 @@ To **send invites** (create users and optionally email a temporary password), se
    `https://abc123.execute-api.ap-south-2.amazonaws.com/webhook/telegram`.
 4. Users link their account in the app: **Settings → Connect Telegram** (generate code), then in Telegram send `/link <code>` to your bot.
 5. Bot commands: `/start`, `/add <amount> <category> [date]`, `/today`, `/month`, `/range <start> <end>`, and free text (e.g. `50 coffee`). See [../docs/api.md](../docs/api.md).
+
+**How to verify the bot is linked to the app:** See [../docs/telegram-bot-verify.md](../docs/telegram-bot-verify.md) for the full checklist. Summary:
+
+- **1. Webhook (Telegram → your API)**  
+  Telegram must send updates to your API. Check what URL is registered:
+  ```bash
+  curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+  ```
+  You should see `"url":"https://<your-api-id>.execute-api.<region>.amazonaws.com/webhook/telegram"`. If `url` is empty or wrong, set it:
+  ```bash
+  curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<API_URL>/webhook/telegram"
+  ```
+  Use the same API URL and token as the stage you’re testing (e.g. from `terraform -chdir=infra/dev output -raw api_gateway_url` for dev).
+
+- **2. User account link (Telegram user ↔ Saven user)**  
+  In the **Saven app**: sign in → **Settings** → **Connect Telegram**. If it shows “Linked” and your Telegram username, the account is linked. If not, generate a code and in Telegram send `/link <code>` to your bot.  
+  You can also call the API with a valid JWT: `GET /telegram/link` returns `{ "linked": true, "defaultGroupId": "..." }` or `{ "linked": false }`.
+
+- **3. End-to-end**  
+  In Telegram, send `/start` or `/today` to the bot. If the webhook and link are correct, the bot replies (e.g. welcome text or today’s summary). If you get no reply, check API Gateway and Lambda logs for `/webhook/telegram` and that the bot token in SSM matches the bot you’re messaging.
 
 **Free-text NLP (optional):** To use GPT-4o mini for parsing messages like "spent 20 on groceries yesterday", set `openai_key` in `terraform.tfvars` or `TF_VAR_openai_key=<key> terraform apply`. The key is stored in SSM at `/${name_prefix}/telegram/openai-api-key`. If unset or "placeholder", the bot uses regex-only parsing. See [../docs/telegram-mini-llm-suggestions.md](../docs/telegram-mini-llm-suggestions.md).
