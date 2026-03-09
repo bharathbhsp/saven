@@ -13,6 +13,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
@@ -85,6 +86,8 @@ export default function Transactions() {
   const [editError, setEditError] = useState(null);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState(null);
   const [deleteDeleting, setDeleteDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +177,22 @@ export default function Transactions() {
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return tb - ta;
   });
+
+  const totalRows = sortedTransactions.length;
+  const maxPage = Math.max(0, Math.ceil(totalRows / rowsPerPage) - 1);
+  const currentPage = Math.min(page, maxPage);
+  const paginatedTransactions = sortedTransactions.slice(
+    currentPage * rowsPerPage,
+    currentPage * rowsPerPage + rowsPerPage
+  );
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, maxPage));
+  }, [totalRows, rowsPerPage, maxPage]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [groupId, filter, day, month, startDate, endDate, paymentFilter, typeFilter]);
 
   function exportStartEnd() {
     if (filter === "day") return { startDate: day, endDate: day };
@@ -464,13 +483,13 @@ export default function Transactions() {
                         <TableCell>Amount (₹)</TableCell>
                         <TableCell>Payment mode</TableCell>
                         <TableCell>Category</TableCell>
-                        <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
+                        <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap", width: 80 }}>Actions</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", width: 90 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {sortedTransactions.map((t) => (
+                      {paginatedTransactions.map((t) => (
                         <TableRow key={t.sk || t.transactionId} hover>
                           <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                             {t.createdAt
@@ -490,7 +509,9 @@ export default function Transactions() {
                           </TableCell>
                           <TableCell>{t.paymentMode || "—"}</TableCell>
                           <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
-                          <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>
+                          <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }} title={t.note ?? ""}>
+                            {t.note ?? "—"}
+                          </TableCell>
                           <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                             {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
                           </TableCell>
@@ -503,6 +524,21 @@ export default function Transactions() {
                       ))}
                     </TableBody>
                   </Table>
+                  <TablePagination
+                    component="div"
+                    count={totalRows}
+                    page={currentPage}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPage(parseInt(e.target.value, 10));
+                      setPage(0);
+                    }}
+                    rowsPerPageOptions={[10, 25, 50, 100]}
+                    labelRowsPerPage="Rows per page:"
+                    showFirstButton
+                    showLastButton
+                  />
                 </TableContainer>
               )}
             </>
