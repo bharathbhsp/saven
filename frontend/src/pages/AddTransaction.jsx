@@ -50,21 +50,17 @@ export default function AddTransaction() {
   }, [token]);
 
   useEffect(() => {
-    if (!groupId) return;
     let cancelled = false;
     (async () => {
       try {
-        const data = await api(() => token, `/groups/${groupId}/categories`);
-        if (!cancelled) {
-          setCategories(data.categories || []);
-          setCategoryId("");
-        }
+        const data = await api(() => token, "/me/categories");
+        if (!cancelled) setCategories(data.categories || []);
       } catch (_) {
         if (!cancelled) setCategories([]);
       }
     })();
     return () => { cancelled = true; };
-  }, [token, groupId]);
+  }, [token]);
 
   async function handleSubmit(e) {
     e.preventDefault();

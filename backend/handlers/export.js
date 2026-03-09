@@ -25,32 +25,26 @@ function buildFilterDescription(query) {
   return parts.join(" | ");
 }
 
-async function fetchCategoryNames(groupId, userId) {
-  const isMember = await requireMember(groupId, userId);
-  if (!isMember) return { err: forbidden("Not a member of this group") };
-  const queryAll = async (gid) => {
-    const out = [];
-    let lastKey;
-    do {
-      const params = {
-        TableName: TABLES.categories,
-        KeyConditionExpression: "groupId = :gid",
-        ExpressionAttributeValues: { ":gid": gid },
-      };
-      if (lastKey) params.ExclusiveStartKey = lastKey;
-      const r = await doc.query(params).promise();
-      out.push(...(r.Items || []));
-      lastKey = r.LastEvaluatedKey;
-    } while (lastKey);
-    return out;
-  };
-  const [groupCats, globalCats] = await Promise.all([
-    queryAll(groupId),
-    queryAll("GLOBAL"),
-  ]);
+const USER_CATEGORIES_PREFIX = "USER#";
+
+async function fetchCategoryNamesForUser(userId) {
+  const gid = USER_CATEGORIES_PREFIX + userId;
+  const out = [];
+  let lastKey;
+  do {
+    const params = {
+      TableName: TABLES.categories,
+      KeyConditionExpression: "groupId = :gid",
+      ExpressionAttributeValues: { ":gid": gid },
+    };
+    if (lastKey) params.ExclusiveStartKey = lastKey;
+    const r = await doc.query(params).promise();
+    out.push(...(r.Items || []));
+    lastKey = r.LastEvaluatedKey;
+  } while (lastKey);
   const categoryIdToName = {};
-  [...globalCats, ...groupCats].filter((c) => !c.archived).forEach((c) => {
-    if (!categoryIdToName[c.categoryId]) categoryIdToName[c.categoryId] = c.name;
+  out.filter((c) => !c.archived).forEach((c) => {
+    categoryIdToName[c.categoryId] = c.name;
   });
   return { categoryIdToName };
 }
@@ -109,10 +103,9 @@ async function csv(params, body, userId, query) {
   const { groupId } = params;
   const [txResult, catResult] = await Promise.all([
     fetchTransactions(groupId, userId, query),
-    fetchCategoryNames(groupId, userId),
+    fetchCategoryNamesForUser(userId),
   ]);
   if (txResult.err) return txResult.err;
-  if (catResult.err) return catResult.err;
   const rows = txResult.transactions;
   const categoryIdToName = catResult.categoryIdToName || {};
   const filterLine = "# Filter: " + buildFilterDescription(query) + "\n";
@@ -134,10 +127,9 @@ async function pdf(params, body, userId, query) {
   const { groupId } = params;
   const [txResult, catResult] = await Promise.all([
     fetchTransactions(groupId, userId, query),
-    fetchCategoryNames(groupId, userId),
+    fetchCategoryNamesForUser(userId),
   ]);
   if (txResult.err) return txResult.err;
-  if (catResult.err) return catResult.err;
   const rows = txResult.transactions;
   const categoryIdToName = catResult.categoryIdToName || {};
   let PDFDocument;

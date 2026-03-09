@@ -69,9 +69,9 @@ export default function Dashboard() {
     const todayStr = now.toISOString().slice(0, 10);
     (async () => {
       try {
-        const [txResults, catResults] = await Promise.all([
+        const [txResults, catData] = await Promise.all([
           Promise.all(groups.map((g) => api(() => token, `/groups/${g.id}/transactions?month=${month}`))),
-          Promise.all(groups.map((g) => api(() => token, `/groups/${g.id}/categories`))),
+          api(() => token, "/me/categories"),
         ]);
         if (cancelled) return;
         const withGroup = txResults.flatMap((data, i) => (data.transactions || []).map((t) => ({ ...t, _groupId: groups[i].id, _groupName: groups[i].name })));
@@ -87,10 +87,8 @@ export default function Dashboard() {
         const monthNetVal = withGroup.reduce((s, t) => s + signedAmount(t), 0);
         const monthNum = withGroup.length;
         const catMap = {};
-        catResults.forEach((data) => {
-          (data.categories || []).forEach((c) => {
-            if (!catMap[c.categoryId]) catMap[c.categoryId] = c.name;
-          });
+        (catData.categories || []).forEach((c) => {
+          catMap[c.categoryId] = c.name;
         });
         const byGroup = {};
         withGroup.forEach((t) => {

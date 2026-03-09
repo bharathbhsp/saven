@@ -28,6 +28,19 @@ function match(method, path) {
   if (segments[0] === "telegram" && segments[1] === "chat-link-code" && segments.length === 2 && method === "POST") {
     return { route: "telegramChatLinkCode.create", params: {} };
   }
+  // /me/categories — per-user categories (list + create)
+  if (segments[0] === "me" && segments[1] === "categories") {
+    if (segments.length === 2) {
+      if (method === "GET") return { route: "categories.listForUser", params: {} };
+      if (method === "POST") return { route: "categories.createForUser", params: {} };
+    }
+    if (segments.length === 3) {
+      const categoryId = segments[2];
+      if (method === "GET") return { route: "categories.getForUser", params: { categoryId } };
+      if (method === "PATCH") return { route: "categories.updateForUser", params: { categoryId } };
+      if (method === "DELETE") return { route: "categories.archiveForUser", params: { categoryId } };
+    }
+  }
   // /groups
   if (segments[0] === "groups") {
     if (segments.length === 1) {
