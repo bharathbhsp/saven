@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const inputClass =
   "px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -114,7 +115,7 @@ export default function Categories() {
       )}
 
       {loadingGroups ? (
-        <p className="text-sm text-muted-foreground">Loading groups…</p>
+        <LoadingSpinner label="Loading groups…" inline />
       ) : groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           You don&apos;t have any groups yet. Create one on the Dashboard, then you can see its categories here.
@@ -179,7 +180,7 @@ export default function Categories() {
               </div>
 
               {loadingCategories ? (
-                <p className="text-sm text-muted-foreground">Loading categories…</p>
+                <LoadingSpinner label="Loading categories…" inline />
               ) : categories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No categories yet.</p>
               ) : (

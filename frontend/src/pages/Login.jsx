@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { APP_NAME } from "../config";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function SavenIcon() {
   return (
@@ -24,8 +25,8 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-muted/30">
-        Loading…
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <LoadingSpinner label="Loading…" />
       </div>
     );
   }

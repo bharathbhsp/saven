@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
+import LoadingSpinner from "./components/LoadingSpinner";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddTransaction from "./pages/AddTransaction";
@@ -13,8 +14,8 @@ function Protected({ children }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-background">
-        Loading…
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner label="Loading…" />
       </div>
     );
   }

@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const inputClass =
   "px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -149,7 +150,7 @@ export default function Groups() {
       )}
 
       {loadingGroups ? (
-        <p className="text-sm text-muted-foreground">Loading groups…</p>
+        <LoadingSpinner label="Loading groups…" inline />
       ) : groups.length === 0 ? (
         <div className="space-y-4">
           <p className="text-muted-foreground">Create a group to start tracking spending.</p>
@@ -241,7 +242,7 @@ export default function Groups() {
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-foreground">Members</h3>
                 {loadingMembers ? (
-                  <p className="text-sm text-muted-foreground">Loading members…</p>
+                  <LoadingSpinner label="Loading members…" inline />
                 ) : members.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No members yet. Add the first member below.</p>
                 ) : (

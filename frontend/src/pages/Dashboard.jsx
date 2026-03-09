@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { formatCurrency, getTransactionType } from "../config";
 
 function signedAmount(t) {
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [groupTotals, setGroupTotals] = useState([]);
   const [recentCategories, setRecentCategories] = useState([]);
   const [categoryIdToName, setCategoryIdToName] = useState({});
+  const [dashboardDataLoading, setDashboardDataLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +63,7 @@ export default function Dashboard() {
       return;
     }
     let cancelled = false;
+    setDashboardDataLoading(true);
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const todayStr = now.toISOString().slice(0, 10);
@@ -145,14 +148,18 @@ export default function Dashboard() {
           setRecentCategories([]);
           setCategoryIdToName({});
         }
+      } finally {
+        if (!cancelled) setDashboardDataLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, [token, groups]);
 
-  if (loading) {
+  if (loading || (groups.length > 0 && dashboardDataLoading)) {
     return (
-      <div className="py-12 text-center text-muted-foreground">Loading…</div>
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <LoadingSpinner label={loading ? "Loading…" : "Updating dashboard…"} />
+      </div>
     );
   }
   if (error && groups.length > 0) {

@@ -25,6 +25,36 @@ function buildFilterDescription(query) {
   return parts.join(" | ");
 }
 
+async function fetchCategoryNames(groupId, userId) {
+  const isMember = await requireMember(groupId, userId);
+  if (!isMember) return { err: forbidden("Not a member of this group") };
+  const queryAll = async (gid) => {
+    const out = [];
+    let lastKey;
+    do {
+      const params = {
+        TableName: TABLES.categories,
+        KeyConditionExpression: "groupId = :gid",
+        ExpressionAttributeValues: { ":gid": gid },
+      };
+      if (lastKey) params.ExclusiveStartKey = lastKey;
+      const r = await doc.query(params).promise();
+      out.push(...(r.Items || []));
+      lastKey = r.LastEvaluatedKey;
+    } while (lastKey);
+    return out;
+  };
+  const [groupCats, globalCats] = await Promise.all([
+    queryAll(groupId),
+    queryAll("GLOBAL"),
+  ]);
+  const categoryIdToName = {};
+  [...globalCats, ...groupCats].filter((c) => !c.archived).forEach((c) => {
+    if (!categoryIdToName[c.categoryId]) categoryIdToName[c.categoryId] = c.name;
+  });
+  return { categoryIdToName };
+}
+
 async function fetchTransactions(groupId, userId, query) {
   const isMember = await requireMember(groupId, userId);
   if (!isMember) return { err: forbidden("Not a member of this group") };
@@ -77,14 +107,20 @@ function csvEscape(s) {
 
 async function csv(params, body, userId, query) {
   const { groupId } = params;
-  const result = await fetchTransactions(groupId, userId, query);
-  if (result.err) return result.err;
-  const rows = result.transactions;
+  const [txResult, catResult] = await Promise.all([
+    fetchTransactions(groupId, userId, query),
+    fetchCategoryNames(groupId, userId),
+  ]);
+  if (txResult.err) return txResult.err;
+  if (catResult.err) return catResult.err;
+  const rows = txResult.transactions;
+  const categoryIdToName = catResult.categoryIdToName || {};
   const filterLine = "# Filter: " + buildFilterDescription(query) + "\n";
-  const header = "Date,Type,Amount (INR),Category ID,Payment,Note\n";
+  const header = "Date,Type,Amount (INR),Category,Payment,Note\n";
   const bodyRows = rows.map((t) => {
     const type = t.transactionType === "credit" ? "credit" : "debit";
-    return [t.date, type, t.amount, t.categoryId || "", t.paymentMode || "", t.note || ""].map(csvEscape).join(",");
+    const categoryName = (t.categoryId && categoryIdToName[t.categoryId]) || t.categoryId || "";
+    return [t.date, type, t.amount, categoryName, t.paymentMode || "", t.note || ""].map(csvEscape).join(",");
   }).join("\n");
   const csvBody = filterLine + header + bodyRows;
   const filename = `saven-export-${params.groupId}-${query.startDate || "range"}.csv`;
@@ -96,9 +132,14 @@ async function csv(params, body, userId, query) {
 
 async function pdf(params, body, userId, query) {
   const { groupId } = params;
-  const result = await fetchTransactions(groupId, userId, query);
-  if (result.err) return result.err;
-  const rows = result.transactions;
+  const [txResult, catResult] = await Promise.all([
+    fetchTransactions(groupId, userId, query),
+    fetchCategoryNames(groupId, userId),
+  ]);
+  if (txResult.err) return txResult.err;
+  if (catResult.err) return catResult.err;
+  const rows = txResult.transactions;
+  const categoryIdToName = catResult.categoryIdToName || {};
   let PDFDocument;
   try {
     PDFDocument = require("pdfkit");
@@ -124,10 +165,11 @@ async function pdf(params, body, userId, query) {
   let y = tableTop + 15;
   for (const t of rows) {
     const type = t.transactionType === "credit" ? "credit" : "debit";
+    const categoryName = (t.categoryId && categoryIdToName[t.categoryId]) || t.categoryId || "";
     docPdf.text(t.date || "", 50, y);
     docPdf.text(type, 100, y);
     docPdf.text(String(t.amount ?? ""), 140, y);
-    docPdf.text((t.categoryId || "").slice(0, 12), 200, y);
+    docPdf.text((categoryName || "").slice(0, 18), 200, y);
     docPdf.text((t.paymentMode || "").slice(0, 8), 280, y);
     docPdf.text((t.note || "").slice(0, 20), 340, y);
     y += 14;

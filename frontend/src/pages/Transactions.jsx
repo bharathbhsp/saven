@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   Table,
   TableBody,
@@ -12,6 +17,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { formatCurrency, getTransactionType } from "../config";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
@@ -45,6 +51,14 @@ const PAYMENT_OPTIONS = [
   { value: "Other", label: "Other" },
 ];
 
+const PAYMENT_OPTIONS_EDIT = [
+  { value: "", label: "—" },
+  ...PAYMENT_OPTIONS.filter((o) => o.value !== "__all__"),
+];
+
+const inputClassFull =
+  "w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
 export default function Transactions() {
   const { token, user } = useAuth();
   const [groups, setGroups] = useState([]);
@@ -64,6 +78,10 @@ export default function Transactions() {
   const [paymentFilter, setPaymentFilter] = useState("__all__");
   const [typeFilter, setTypeFilter] = useState("__all__");
   const [exporting, setExporting] = useState(null);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [editForm, setEditForm] = useState({ amount: "", transactionType: "debit", categoryId: "", paymentMode: "", note: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,6 +185,71 @@ export default function Transactions() {
     if (paymentFilter !== "__all__") params.set("paymentMode", paymentFilter);
     if (typeFilter === "credit" || typeFilter === "debit") params.set("transactionType", typeFilter);
     return params.toString();
+  }
+
+  function openEdit(t) {
+    setEditingTransaction(t);
+    setEditForm({
+      amount: String(t.amount ?? ""),
+      transactionType: getTransactionType(t) === "credit" ? "credit" : "debit",
+      categoryId: t.categoryId || "",
+      paymentMode: t.paymentMode || "",
+      note: t.note || "",
+    });
+    setEditError(null);
+  }
+
+  function closeEdit() {
+    setEditingTransaction(null);
+    setEditError(null);
+  }
+
+  async function handleEditSubmit(e) {
+    e.preventDefault();
+    if (!editingTransaction || !groupId) return;
+    const num = parseFloat(editForm.amount, 10);
+    if (Number.isNaN(num) || num < 0) {
+      setEditError("Amount must be a non-negative number.");
+      return;
+    }
+    if (!editForm.categoryId.trim()) {
+      setEditError("Category is required.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await api(() => token, `/groups/${groupId}/transactions/${editingTransaction.transactionId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          date: editingTransaction.date,
+          amount: num,
+          transactionType: editForm.transactionType,
+          categoryId: editForm.categoryId.trim(),
+          paymentMode: editForm.paymentMode.trim() || "",
+          note: editForm.note.trim() || undefined,
+        }),
+      });
+      setTransactions((prev) =>
+        prev.map((tx) =>
+          tx.transactionId === editingTransaction.transactionId && tx.date === editingTransaction.date
+            ? {
+                ...tx,
+                amount: num,
+                transactionType: editForm.transactionType,
+                categoryId: editForm.categoryId.trim(),
+                paymentMode: editForm.paymentMode.trim() || "",
+                note: editForm.note.trim() || undefined,
+              }
+            : tx
+        )
+      );
+      closeEdit();
+    } catch (err) {
+      setEditError(err.message || "Update failed");
+    } finally {
+      setEditSaving(false);
+    }
   }
 
   async function handleExport(format) {
@@ -315,7 +398,7 @@ export default function Transactions() {
           </div>
 
           {loading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
+            <LoadingSpinner label="Loading transactions…" inline />
           ) : (
             <>
               <p className="text-lg font-medium text-foreground">
@@ -341,6 +424,7 @@ export default function Transactions() {
                         <TableCell>Category</TableCell>
                         <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", width: 80 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -368,6 +452,11 @@ export default function Transactions() {
                           <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
                             {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
                           </TableCell>
+                          <TableCell>
+                            <Button size="small" variant="outlined" onClick={() => openEdit(t)} aria-label="Edit transaction">
+                              Edit
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -378,6 +467,115 @@ export default function Transactions() {
           )}
         </div>
       )}
+
+      <Dialog open={!!editingTransaction} onClose={closeEdit} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit transaction</DialogTitle>
+        <form onSubmit={handleEditSubmit}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {editError && (
+              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 px-2 py-1.5 rounded" role="alert">
+                {editError}
+              </p>
+            )}
+            {editingTransaction && (
+              <>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Date (transaction date)</span>
+                  <input
+                    type="text"
+                    value={editingTransaction.date}
+                    readOnly
+                    className={inputClassFull + " mt-1 bg-muted/50"}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Type</span>
+                  <div className="flex gap-4 mt-1">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="editTransactionType"
+                        value="debit"
+                        checked={editForm.transactionType === "debit"}
+                        onChange={() => setEditForm((f) => ({ ...f, transactionType: "debit" }))}
+                        className="rounded-full border-input"
+                      />
+                      <span className="text-sm">Spend</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="editTransactionType"
+                        value="credit"
+                        checked={editForm.transactionType === "credit"}
+                        onChange={() => setEditForm((f) => ({ ...f, transactionType: "credit" }))}
+                        className="rounded-full border-input"
+                      />
+                      <span className="text-sm">Credit</span>
+                    </label>
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Amount (₹)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
+                    className={inputClassFull + " mt-1"}
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Category</span>
+                  <select
+                    value={editForm.categoryId}
+                    onChange={(e) => setEditForm((f) => ({ ...f, categoryId: e.target.value }))}
+                    className={inputClassFull + " mt-1"}
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {(categories || []).map((c) => (
+                      <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Payment mode</span>
+                  <select
+                    value={editForm.paymentMode}
+                    onChange={(e) => setEditForm((f) => ({ ...f, paymentMode: e.target.value }))}
+                    className={inputClassFull + " mt-1"}
+                  >
+                    {PAYMENT_OPTIONS_EDIT.map((o) => (
+                      <option key={o.value || "__none__"} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Note</span>
+                  <input
+                    type="text"
+                    value={editForm.note}
+                    onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
+                    className={inputClassFull + " mt-1"}
+                    placeholder="Optional"
+                  />
+                </label>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button type="button" onClick={closeEdit} color="inherit">
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" disabled={editSaving}>
+              {editSaving ? "Saving…" : "Save"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </div>
   );
 }

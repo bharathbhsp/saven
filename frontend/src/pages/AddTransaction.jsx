@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { CircularProgress } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { CURRENCY_SYMBOL } from "../config";
@@ -7,6 +8,17 @@ import { CURRENCY_SYMBOL } from "../config";
 const inputClass =
   "w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
 const labelClass = "text-sm font-medium text-foreground block mb-1";
+
+const PAYMENT_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "UPI", label: "UPI" },
+  { value: "Cash", label: "Cash" },
+  { value: "Credit card", label: "Credit card" },
+  { value: "Debit card", label: "Debit card" },
+  { value: "Netbanking", label: "Netbanking" },
+  { value: "Wallet", label: "Wallet" },
+  { value: "Other", label: "Other" },
+];
 
 export default function AddTransaction() {
   const { token } = useAuth();
@@ -18,6 +30,7 @@ export default function AddTransaction() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState("");
+  const [paymentMode, setPaymentMode] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -73,7 +86,7 @@ export default function AddTransaction() {
           date,
           categoryId,
           note: note.trim() || undefined,
-          paymentMode: "", // future: add input; for now explicit default
+          paymentMode: paymentMode.trim() || "",
         }),
       });
       navigate("/");
@@ -131,11 +144,26 @@ export default function AddTransaction() {
           </select>
         </label>
         <label>
+          <span className={labelClass}>Payment mode</span>
+          <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className={inputClass}>
+            {PAYMENT_OPTIONS.map((o) => (
+              <option key={o.value || "__none__"} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
           <span className={labelClass}>Note (optional)</span>
           <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note" className={inputClass} />
         </label>
-        <button type="submit" disabled={loading} className="py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity">
-          {loading ? "Adding…" : "Add"}
+        <button type="submit" disabled={loading} className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity">
+          {loading ? (
+            <>
+              <CircularProgress size={18} color="inherit" sx={{ color: "inherit" }} />
+              Adding…
+            </>
+          ) : (
+            "Add"
+          )}
         </button>
       </form>
     </div>

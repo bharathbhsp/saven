@@ -30,6 +30,16 @@ A spend tracking application built on the **AWS serverless** stack. Track daily,
 - **`frontend/`** — React app (Vite); build output is synced to S3/CloudFront.
 - **`infra/`** — Terraform only (no application source); references `backend/` for the Lambda zip.
 
+## Deploy (dev / prod)
+
+From the repo root, deploy backend and frontend for an environment (applies Terraform then builds and syncs the frontend):
+
+```bash
+./scripts/deploy.sh dev   # or: prod
+```
+
+Optional: use a var file (e.g. copy `infra/dev/dev.tfvars.example` to `infra/dev/dev.tfvars` and set values), then Terraform will pick it up automatically. For secrets use `TF_VAR_*` or the var file (do not commit secrets).
+
 ## Getting started
 
 1. Review [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) and [docs/dev-phases.md](docs/dev-phases.md).  
