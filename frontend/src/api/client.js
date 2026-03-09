@@ -10,6 +10,12 @@ export async function api(getToken, path, options = {}) {
   };
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      try {
+        sessionStorage.removeItem("saven_id_token");
+      } catch (_) {}
+      window.location.replace("/login");
+    }
     let body;
     try {
       body = await res.json();
