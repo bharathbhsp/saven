@@ -82,6 +82,8 @@ export default function Transactions() {
   const [editForm, setEditForm] = useState({ amount: "", transactionType: "debit", categoryId: "", paymentMode: "", note: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
+  const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState(null);
+  const [deleteDeleting, setDeleteDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,6 +204,38 @@ export default function Transactions() {
   function closeEdit() {
     setEditingTransaction(null);
     setEditError(null);
+  }
+
+  function openDeleteConfirm(t) {
+    setDeleteConfirmTransaction(t);
+  }
+
+  function closeDeleteConfirm() {
+    setDeleteConfirmTransaction(null);
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteConfirmTransaction || !groupId) return;
+    setDeleteDeleting(true);
+    try {
+      await api(
+        () => token,
+        `/groups/${groupId}/transactions/${deleteConfirmTransaction.transactionId}?date=${encodeURIComponent(deleteConfirmTransaction.date)}`,
+        { method: "DELETE" }
+      );
+      setTransactions((prev) =>
+        prev.filter(
+          (tx) =>
+            !(tx.transactionId === deleteConfirmTransaction.transactionId && tx.date === deleteConfirmTransaction.date)
+        )
+      );
+      closeDeleteConfirm();
+    } catch (err) {
+      setError(err.message || "Delete failed");
+      closeDeleteConfirm();
+    } finally {
+      setDeleteDeleting(false);
+    }
   }
 
   async function handleEditSubmit(e) {
@@ -566,15 +600,45 @@ export default function Transactions() {
               </>
             )}
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button type="button" onClick={closeEdit} color="inherit">
-              Cancel
+          <DialogActions sx={{ px: 3, pb: 2, justifyContent: "space-between" }}>
+            <Button
+              type="button"
+              onClick={() => {
+                if (editingTransaction) openDeleteConfirm(editingTransaction);
+                closeEdit();
+              }}
+              color="error"
+              disabled={editSaving}
+            >
+              Delete
             </Button>
-            <Button type="submit" variant="contained" disabled={editSaving}>
-              {editSaving ? "Saving…" : "Save"}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" onClick={closeEdit} color="inherit">
+                Cancel
+              </Button>
+              <Button type="submit" variant="contained" disabled={editSaving}>
+                {editSaving ? "Saving…" : "Save"}
+              </Button>
+            </div>
           </DialogActions>
         </form>
+      </Dialog>
+
+      <Dialog open={!!deleteConfirmTransaction} onClose={closeDeleteConfirm}>
+        <DialogTitle>Delete transaction?</DialogTitle>
+        <DialogContent>
+          <p className="text-foreground">
+            Are you sure you want to delete this transaction? This cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeDeleteConfirm} color="inherit" disabled={deleteDeleting}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleteDeleting}>
+            {deleteDeleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );
