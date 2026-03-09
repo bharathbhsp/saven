@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import { CURRENCY_SYMBOL } from "../config";
 
 const inputClass =
   "w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
@@ -57,7 +58,7 @@ export default function AddTransaction() {
     setError(null);
     const num = parseFloat(amount, 10);
     if (Number.isNaN(num) || !date || !categoryId) {
-      setError("Amount, date and category are required.");
+      setError("Amount (₹), date and category are required.");
       return;
     }
     setLoading(true);
@@ -111,8 +112,8 @@ export default function AddTransaction() {
           </div>
         </label>
         <label>
-          <span className={labelClass}>Amount</span>
-          <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputClass} placeholder="0.00" />
+          <span className={labelClass}>Amount ({CURRENCY_SYMBOL})</span>
+          <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputClass} placeholder="0.00" aria-label="Amount in rupees" />
         </label>
         <label>
           <span className={labelClass}>Date</span>

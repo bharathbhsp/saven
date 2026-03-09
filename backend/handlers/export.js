@@ -43,7 +43,7 @@ async function csv(params, body, userId, query) {
   const result = await fetchTransactions(groupId, userId, query);
   if (result.err) return result.err;
   const rows = result.transactions;
-  const header = "Date,Type,Amount,Category ID,Note\n";
+  const header = "Date,Type,Amount (INR),Category ID,Note\n";
   const bodyRows = rows.map((t) => {
     const type = t.transactionType === "credit" ? "credit" : "debit";
     return [t.date, type, t.amount, t.categoryId || "", t.note || ""].map(csvEscape).join(",");
@@ -79,7 +79,7 @@ async function pdf(params, body, userId, query) {
   const tableTop = docPdf.y;
   docPdf.text("Date", 50, tableTop);
   docPdf.text("Type", 110, tableTop);
-  docPdf.text("Amount", 150, tableTop);
+  docPdf.text("Amount (INR)", 150, tableTop);
   docPdf.text("Category", 220, tableTop);
   docPdf.text("Note", 350, tableTop);
   let y = tableTop + 15;

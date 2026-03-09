@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import { formatCurrency } from "../config";
 
 // Net contribution: credit adds, debit (spend) subtracts. Missing type = debit (backward compat).
 function signedAmount(t) {
@@ -183,7 +184,7 @@ export default function Dashboard() {
             <div className="rounded-xl border border-border bg-muted/30 p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Today&apos;s net</p>
               <p className={`text-2xl font-semibold ${todayNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {todayNet >= 0 ? "+" : ""}{todayNet.toFixed(2)}
+                {formatCurrency(todayNet)}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {todayCount} {todayCount === 1 ? "transaction" : "transactions"}
@@ -194,7 +195,7 @@ export default function Dashboard() {
                 This month&apos;s net
               </p>
               <p className={`text-2xl font-semibold ${monthNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {monthNet >= 0 ? "+" : ""}{monthNet.toFixed(2)}
+                {formatCurrency(monthNet)}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {monthCount} {monthCount === 1 ? "transaction" : "transactions"}
@@ -217,7 +218,7 @@ export default function Dashboard() {
                       {groupName}
                     </p>
                     <p className={`text-xl font-semibold mt-0.5 ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                      {net >= 0 ? "+" : ""}{net.toFixed(2)}
+                      {formatCurrency(net)}
                     </p>
                   </div>
                 ))}
@@ -240,7 +241,7 @@ export default function Dashboard() {
                       {categoryName}
                     </p>
                     <p className={`text-xl font-semibold mt-0.5 ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                      {net >= 0 ? "+" : ""}{net.toFixed(2)}
+                      {formatCurrency(net)}
                     </p>
                   </div>
                 ))}
@@ -259,7 +260,7 @@ export default function Dashboard() {
                     <TableRow>
                       <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
                       <TableCell>Group</TableCell>
-                      <TableCell>Amount</TableCell>
+                      <TableCell>Amount (₹)</TableCell>
                       <TableCell>Category</TableCell>
                       <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
                       <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
@@ -275,7 +276,7 @@ export default function Dashboard() {
                         </TableCell>
                         <TableCell>{t._groupName}</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>
-                          {signedAmount(t) >= 0 ? "+" : ""}{signedAmount(t)}
+                          {formatCurrency(signedAmount(t))}
                         </TableCell>
                         <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
                         <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>

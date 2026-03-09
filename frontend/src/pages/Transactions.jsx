@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import { formatCurrency } from "../config";
 
 const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
@@ -252,7 +253,7 @@ export default function Transactions() {
               <p className="text-lg font-medium text-foreground">
                 Net:{" "}
                 <span className={net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-                  {net >= 0 ? "+" : ""}{net.toFixed(2)}
+                  {formatCurrency(net)}
                 </span>{" "}
                 <span className="text-sm text-muted-foreground">
                   ({transactions.length} {transactions.length === 1 ? "transaction" : "transactions"})
@@ -267,7 +268,7 @@ export default function Transactions() {
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
                         <TableCell>Type</TableCell>
-                        <TableCell>Amount</TableCell>
+                        <TableCell>Amount (₹)</TableCell>
                         <TableCell>Payment mode</TableCell>
                         <TableCell>Category</TableCell>
                         <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
@@ -291,7 +292,7 @@ export default function Transactions() {
                               color: signedAmount(t) >= 0 ? "success.main" : "error.main",
                             }}
                           >
-                            {signedAmount(t) >= 0 ? "+" : ""}{signedAmount(t)}
+                            {formatCurrency(signedAmount(t))}
                           </TableCell>
                           <TableCell>{t.paymentMode || "—"}</TableCell>
                           <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
