@@ -11,13 +11,13 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
-import { formatCurrency } from "../config";
+import { formatCurrency, getTransactionType } from "../config";
 
 const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 function signedAmount(t) {
   const amt = t.amount ?? 0;
-  return t.transactionType === "credit" ? amt : -amt;
+  return getTransactionType(t) === "credit" ? amt : -amt;
 }
 
 function downloadBlob(blob, filename) {
@@ -31,6 +31,20 @@ function downloadBlob(blob, filename) {
 const inputClass =
   "px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
+const ALL_START = "2000-01-01";
+const ALL_END = "2030-12-31";
+
+const PAYMENT_OPTIONS = [
+  { value: "__all__", label: "All payment modes" },
+  { value: "UPI", label: "UPI" },
+  { value: "Cash", label: "Cash" },
+  { value: "Credit card", label: "Credit card" },
+  { value: "Debit card", label: "Debit card" },
+  { value: "Netbanking", label: "Netbanking" },
+  { value: "Wallet", label: "Wallet" },
+  { value: "Other", label: "Other" },
+];
+
 export default function Transactions() {
   const { token, user } = useAuth();
   const [groups, setGroups] = useState([]);
@@ -39,7 +53,7 @@ export default function Transactions() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("month");
+  const [filter, setFilter] = useState("all");
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(() => {
     const d = new Date();
@@ -47,6 +61,8 @@ export default function Transactions() {
   });
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("__all__");
+  const [typeFilter, setTypeFilter] = useState("__all__");
   const [exporting, setExporting] = useState(null);
 
   useEffect(() => {
@@ -64,9 +80,21 @@ export default function Transactions() {
   }, [token]);
 
   function queryString() {
-    if (filter === "day") return `day=${day}`;
-    if (filter === "month") return `month=${month}`;
-    return `startDate=${startDate}&endDate=${endDate}`;
+    const params = new URLSearchParams();
+    if (filter === "day") {
+      params.set("day", day);
+    } else if (filter === "month") {
+      params.set("month", month);
+    } else if (filter === "all") {
+      params.set("startDate", ALL_START);
+      params.set("endDate", ALL_END);
+    } else {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
+    if (paymentFilter !== "__all__") params.set("paymentMode", paymentFilter);
+    if (typeFilter === "credit" || typeFilter === "debit") params.set("transactionType", typeFilter);
+    return params.toString();
   }
 
   useEffect(() => {
@@ -85,16 +113,17 @@ export default function Transactions() {
 
   useEffect(() => {
     if (!groupId) return;
+    if (filter === "range" && (!startDate || !endDate)) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     (async () => {
       try {
         setError(null);
         const q = queryString();
-        if (filter === "range" && (!startDate || !endDate)) {
-          if (!cancelled) setTransactions([]);
-          return;
-        }
         const data = await api(
           () => token,
           `/groups/${groupId}/transactions?${q}`
@@ -107,7 +136,7 @@ export default function Transactions() {
       }
     })();
     return () => { cancelled = true; };
-  }, [token, groupId, filter, day, month, startDate, endDate]);
+  }, [token, groupId, filter, day, month, startDate, endDate, paymentFilter, typeFilter]);
 
   const net = transactions.reduce((s, t) => s + signedAmount(t), 0);
   const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
@@ -128,7 +157,16 @@ export default function Transactions() {
         endDate: `${month}-${String(last).padStart(2, "0")}`,
       };
     }
+    if (filter === "all") return { startDate: ALL_START, endDate: ALL_END };
     return { startDate, endDate };
+  }
+
+  function exportQueryParams() {
+    const { startDate: s, endDate: e } = exportStartEnd();
+    const params = new URLSearchParams({ startDate: s, endDate: e });
+    if (paymentFilter !== "__all__") params.set("paymentMode", paymentFilter);
+    if (typeFilter === "credit" || typeFilter === "debit") params.set("transactionType", typeFilter);
+    return params.toString();
   }
 
   async function handleExport(format) {
@@ -137,8 +175,9 @@ export default function Transactions() {
     if (!s || !e) return;
     setExporting(format);
     try {
+      const q = exportQueryParams();
       const res = await fetch(
-        `${API_URL}/groups/${groupId}/export/${format}?startDate=${s}&endDate=${e}`,
+        `${API_URL}/groups/${groupId}/export/${format}?${q}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw new Error("Export failed");
@@ -173,6 +212,7 @@ export default function Transactions() {
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
               className={inputClass}
+              aria-label="Group"
             >
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
@@ -182,9 +222,11 @@ export default function Transactions() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className={inputClass}
+              aria-label="Period"
             >
+              <option value="all">All time</option>
               <option value="day">Daily</option>
-              <option value="month">Month</option>
+              <option value="month">Monthly</option>
               <option value="range">Date range</option>
             </select>
             {filter === "day" && (
@@ -193,6 +235,7 @@ export default function Transactions() {
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
                 className={inputClass}
+                aria-label="Day"
               />
             )}
             {filter === "month" && (
@@ -201,6 +244,7 @@ export default function Transactions() {
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
                 className={inputClass}
+                aria-label="Month"
               />
             )}
             {filter === "range" && (
@@ -210,15 +254,39 @@ export default function Transactions() {
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={inputClass}
+                  aria-label="Start date"
                 />
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className={inputClass}
+                  aria-label="End date"
                 />
               </>
             )}
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className={inputClass}
+              aria-label="Payment mode"
+              title="Filter by payment mode"
+            >
+              {PAYMENT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className={inputClass}
+              aria-label="Transaction type"
+              title="Filter by Credit or Spend"
+            >
+              <option value="__all__">All types (Credit and Spend)</option>
+              <option value="credit">Credit</option>
+              <option value="debit">Spend</option>
+            </select>
           </div>
 
           {error && (
@@ -284,7 +352,7 @@ export default function Transactions() {
                               : "—"}
                           </TableCell>
                           <TableCell sx={{ textTransform: "capitalize" }}>
-                            {(t.transactionType || "debit") === "credit" ? "Credit" : "Spend"}
+                            {getTransactionType(t) === "credit" ? "Credit" : "Spend"}
                           </TableCell>
                           <TableCell
                             sx={{

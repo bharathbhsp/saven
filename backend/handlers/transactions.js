@@ -31,13 +31,49 @@ async function list(params, body, userId, query) {
   if (!isMember) return forbidden("Not a member of this group");
   const range = parseDateRange(query);
   if (range.err) return badRequest(range.err);
-  const r = await doc.query({
+  const req = {
     TableName: TABLES.transactions,
     KeyConditionExpression: "groupId = :gid AND sk BETWEEN :start AND :end",
     ExpressionAttributeValues: { ":gid": groupId, ":start": range.skStart, ":end": range.skEnd },
-    ScanIndexForward: false, // latest date first (descending order by sk = date#transactionId)
-  }).promise();
-  return json(200, { transactions: r.Items || [] });
+    ScanIndexForward: false,
+  };
+  const paymentModeRaw = query.paymentMode !== undefined ? query.paymentMode : query.payment_mode;
+  const transactionTypeRaw = query.transactionType !== undefined ? query.transactionType : query.transaction_type;
+  const paymentMode = paymentModeRaw !== undefined && paymentModeRaw !== null ? String(paymentModeRaw).trim() : undefined;
+  const transactionType =
+    transactionTypeRaw === "credit" || transactionTypeRaw === "debit" ? transactionTypeRaw : undefined;
+  const filters = [];
+  const names = {};
+  if (paymentMode !== undefined) {
+    if (paymentMode !== "") {
+      filters.push("#pm = :pm");
+      names["#pm"] = "paymentMode";
+      req.ExpressionAttributeValues[":pm"] = paymentMode;
+    } else {
+      filters.push("(attribute_not_exists(#pm) OR #pm = :pm)");
+      names["#pm"] = "paymentMode";
+      req.ExpressionAttributeValues[":pm"] = "";
+    }
+  }
+  if (transactionType) {
+    names["#txType"] = "transactionType";
+    req.ExpressionAttributeValues[":tt"] = transactionType;
+    if (transactionType === "debit") {
+      filters.push("(attribute_not_exists(#txType) OR #txType = :tt)");
+    } else {
+      filters.push("#txType = :tt");
+    }
+  }
+  if (filters.length) {
+    req.FilterExpression = filters.join(" AND ");
+    if (Object.keys(names).length) req.ExpressionAttributeNames = names;
+  }
+  const r = await doc.query(req).promise();
+  const items = (r.Items || []).map((item) => ({
+    ...item,
+    transactionType: item.transactionType === "credit" ? "credit" : "debit",
+  }));
+  return json(200, { transactions: items });
 }
 
 async function create(params, body, userId) {
@@ -47,7 +83,8 @@ async function create(params, body, userId) {
   const amount = body && body.amount;
   const date = body && body.date;
   const categoryId = body && body.categoryId;
-  let transactionType = (body && body.transactionType) === "credit" ? "credit" : "debit";
+  const rawType = body && (body.transactionType ?? body.transaction_type);
+  let transactionType = String(rawType || "").toLowerCase().trim() === "credit" ? "credit" : "debit";
   if (amount === undefined || amount === null || typeof amount !== "number") return badRequest("amount (number) is required");
   if (amount < 0) return badRequest("amount must be non-negative; use transactionType 'credit' or 'debit' to indicate direction");
   if (!date || !DATE_RE.test(date)) return badRequest("date (YYYY-MM-DD) is required");
@@ -86,7 +123,11 @@ async function get(params, body, userId, query) {
     Key: { groupId, sk },
   }).promise();
   if (!r.Item) return notFound("Transaction not found");
-  return json(200, { transaction: r.Item });
+  const item = {
+    ...r.Item,
+    transactionType: r.Item.transactionType === "credit" ? "credit" : "debit",
+  };
+  return json(200, { transaction: item });
 }
 
 async function update(params, body, userId) {
@@ -109,8 +150,9 @@ async function update(params, body, userId) {
     updates.push("amount = :a");
     values[":a"] = body.amount;
   }
-  if (body.transactionType !== undefined) {
-    const tt = body.transactionType === "credit" ? "credit" : "debit";
+  if (body.transactionType !== undefined || body.transaction_type !== undefined) {
+    const raw = body.transactionType ?? body.transaction_type;
+    const tt = String(raw).toLowerCase().trim() === "credit" ? "credit" : "debit";
     updates.push("transactionType = :tt");
     values[":tt"] = tt;
   }

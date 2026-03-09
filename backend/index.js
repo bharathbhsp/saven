@@ -30,7 +30,22 @@ function parseBody(event) {
 
 function parseQuery(event) {
   if (!event) return {};
-  return event.queryStringParameters || {};
+  let q = event.queryStringParameters;
+  if (!q || typeof q !== "object") {
+    const raw = event.rawQueryString || event.queryString;
+    if (typeof raw === "string" && raw.trim()) {
+      q = Object.fromEntries(new URLSearchParams(raw));
+    } else {
+      return {};
+    }
+  }
+  const out = { ...q };
+  if (q.paymentmode !== undefined) out.paymentMode = q.paymentmode;
+  if (q.transactiontype !== undefined) out.transactionType = q.transactiontype;
+  if (q.startdate !== undefined) out.startDate = q.startdate;
+  if (q.enddate !== undefined) out.endDate = q.enddate;
+  if (q.categoryid !== undefined) out.categoryId = q.categoryid;
+  return out;
 }
 
 const CORS_HEADERS = {

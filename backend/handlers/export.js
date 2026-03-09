@@ -12,6 +12,19 @@ function parseExportRange(query) {
   return { skStart: `${startDate}#`, skEnd: `${endDate}\uffff` };
 }
 
+function buildFilterDescription(query) {
+  const parts = [`Period: ${query.startDate || ""} to ${query.endDate || ""}`];
+  const paymentMode = query.paymentMode !== undefined ? query.paymentMode : query.payment_mode;
+  const transactionType = query.transactionType !== undefined ? query.transactionType : query.transaction_type;
+  if (paymentMode !== undefined && paymentMode !== null) {
+    parts.push(String(paymentMode).trim() === "" ? "Payment: (none)" : `Payment: ${paymentMode}`);
+  }
+  if (transactionType === "credit" || transactionType === "debit") {
+    parts.push(`Type: ${transactionType}`);
+  }
+  return parts.join(" | ");
+}
+
 async function fetchTransactions(groupId, userId, query) {
   const isMember = await requireMember(groupId, userId);
   if (!isMember) return { err: forbidden("Not a member of this group") };
@@ -22,10 +35,34 @@ async function fetchTransactions(groupId, userId, query) {
     KeyConditionExpression: "groupId = :gid AND sk BETWEEN :start AND :end",
     ExpressionAttributeValues: { ":gid": groupId, ":start": range.skStart, ":end": range.skEnd },
   };
-  const categoryId = query && query.categoryId;
-  if (categoryId && categoryId.trim()) {
-    req.FilterExpression = "categoryId = :cid";
-    req.ExpressionAttributeValues[":cid"] = categoryId.trim();
+  const paymentMode = query.paymentMode !== undefined ? query.paymentMode : query.payment_mode;
+  const transactionType = query.transactionType !== undefined ? query.transactionType : query.transaction_type;
+  const filters = [];
+  const names = {};
+  if (paymentMode !== undefined && paymentMode !== null) {
+    const pm = String(paymentMode).trim();
+    if (pm !== "") {
+      filters.push("#pm = :pm");
+      names["#pm"] = "paymentMode";
+      req.ExpressionAttributeValues[":pm"] = pm;
+    } else {
+      filters.push("(attribute_not_exists(#pm) OR #pm = :pm)");
+      names["#pm"] = "paymentMode";
+      req.ExpressionAttributeValues[":pm"] = "";
+    }
+  }
+  if (transactionType === "credit" || transactionType === "debit") {
+    names["#txType"] = "transactionType";
+    req.ExpressionAttributeValues[":tt"] = transactionType;
+    if (transactionType === "debit") {
+      filters.push("(attribute_not_exists(#txType) OR #txType = :tt)");
+    } else {
+      filters.push("#txType = :tt");
+    }
+  }
+  if (filters.length) {
+    req.FilterExpression = filters.join(" AND ");
+    if (Object.keys(names).length) req.ExpressionAttributeNames = names;
   }
   const r = await doc.query(req).promise();
   return { transactions: r.Items || [] };
@@ -43,12 +80,13 @@ async function csv(params, body, userId, query) {
   const result = await fetchTransactions(groupId, userId, query);
   if (result.err) return result.err;
   const rows = result.transactions;
-  const header = "Date,Type,Amount (INR),Category ID,Note\n";
+  const filterLine = "# Filter: " + buildFilterDescription(query) + "\n";
+  const header = "Date,Type,Amount (INR),Category ID,Payment,Note\n";
   const bodyRows = rows.map((t) => {
     const type = t.transactionType === "credit" ? "credit" : "debit";
-    return [t.date, type, t.amount, t.categoryId || "", t.note || ""].map(csvEscape).join(",");
+    return [t.date, type, t.amount, t.categoryId || "", t.paymentMode || "", t.note || ""].map(csvEscape).join(",");
   }).join("\n");
-  const csvBody = header + bodyRows;
+  const csvBody = filterLine + header + bodyRows;
   const filename = `saven-export-${params.groupId}-${query.startDate || "range"}.csv`;
   return raw(200, csvBody, {
     "Content-Type": "text/csv; charset=utf-8",
@@ -73,23 +111,25 @@ async function pdf(params, body, userId, query) {
   docPdf.on("data", (chunk) => chunks.push(chunk));
   docPdf.on("end", () => {});
   docPdf.fontSize(16).text("Saven – Transaction export", { continued: false });
-  docPdf.fontSize(10).text(`Group: ${groupId}  |  ${query.startDate || ""} to ${query.endDate || ""}`, { continued: false });
+  docPdf.fontSize(9).text("Filter: " + buildFilterDescription(query), { continued: false });
   docPdf.moveDown();
   docPdf.fontSize(10);
   const tableTop = docPdf.y;
   docPdf.text("Date", 50, tableTop);
-  docPdf.text("Type", 110, tableTop);
-  docPdf.text("Amount (INR)", 150, tableTop);
-  docPdf.text("Category", 220, tableTop);
-  docPdf.text("Note", 350, tableTop);
+  docPdf.text("Type", 100, tableTop);
+  docPdf.text("Amount (INR)", 140, tableTop);
+  docPdf.text("Category", 200, tableTop);
+  docPdf.text("Payment", 280, tableTop);
+  docPdf.text("Note", 340, tableTop);
   let y = tableTop + 15;
   for (const t of rows) {
     const type = t.transactionType === "credit" ? "credit" : "debit";
     docPdf.text(t.date || "", 50, y);
-    docPdf.text(type, 110, y);
-    docPdf.text(String(t.amount ?? ""), 150, y);
-    docPdf.text((t.categoryId || "").slice(0, 18), 220, y);
-    docPdf.text((t.note || "").slice(0, 30), 350, y);
+    docPdf.text(type, 100, y);
+    docPdf.text(String(t.amount ?? ""), 140, y);
+    docPdf.text((t.categoryId || "").slice(0, 12), 200, y);
+    docPdf.text((t.paymentMode || "").slice(0, 8), 280, y);
+    docPdf.text((t.note || "").slice(0, 20), 340, y);
     y += 14;
     if (y > 700) {
       docPdf.addPage();

@@ -11,12 +11,11 @@ import {
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
-import { formatCurrency } from "../config";
+import { formatCurrency, getTransactionType } from "../config";
 
-// Net contribution: credit adds, debit (spend) subtracts. Missing type = debit (backward compat).
 function signedAmount(t) {
   const amt = t.amount ?? 0;
-  return t.transactionType === "credit" ? amt : -amt;
+  return getTransactionType(t) === "credit" ? amt : -amt;
 }
 
 export default function Dashboard() {

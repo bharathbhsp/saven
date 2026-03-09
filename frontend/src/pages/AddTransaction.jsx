@@ -56,18 +56,20 @@ export default function AddTransaction() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    const form = e.currentTarget;
     const num = parseFloat(amount, 10);
     if (Number.isNaN(num) || !date || !categoryId) {
       setError("Amount (₹), date and category are required.");
       return;
     }
+    const selectedType = form.querySelector('input[name="transactionType"]:checked')?.value || "debit";
     setLoading(true);
     try {
       await api(() => token, `/groups/${groupId}/transactions`, {
         method: "POST",
         body: JSON.stringify({
           amount: num,
-          transactionType: transactionType === "credit" ? "credit" : "debit",
+          transactionType: selectedType === "credit" ? "credit" : "debit",
           date,
           categoryId,
           note: note.trim() || undefined,

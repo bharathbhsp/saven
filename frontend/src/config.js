@@ -7,6 +7,12 @@ export const APP_NAME =
 export const CURRENCY_CODE = "INR";
 export const CURRENCY_SYMBOL = "₹";
 
+/** Normalize transaction type from API item (handles transactionType, transaction_type, or missing). */
+export function getTransactionType(t) {
+  const raw = t?.transactionType ?? t?.transaction_type ?? "";
+  return String(raw).toLowerCase().trim() === "credit" ? "credit" : "debit";
+}
+
 /** Format a signed number as currency (e.g. "₹1,234.56" or "-₹500.00"). No space between symbol and amount. */
 export function formatCurrency(amount) {
   const n = Number(amount);
