@@ -12,15 +12,21 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 
+// Net contribution: credit adds, debit (spend) subtracts. Missing type = debit (backward compat).
+function signedAmount(t) {
+  const amt = t.amount ?? 0;
+  return t.transactionType === "credit" ? amt : -amt;
+}
+
 export default function Dashboard() {
   const { token, user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recent, setRecent] = useState([]);
-  const [todayTotal, setTodayTotal] = useState(0);
+  const [todayNet, setTodayNet] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
-  const [monthTotal, setMonthTotal] = useState(0);
+  const [monthNet, setMonthNet] = useState(0);
   const [monthCount, setMonthCount] = useState(0);
   const [groupTotals, setGroupTotals] = useState([]);
   const [recentCategories, setRecentCategories] = useState([]);
@@ -45,9 +51,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!groups.length) {
       setRecent([]);
-      setTodayTotal(0);
+      setTodayNet(0);
       setTodayCount(0);
-      setMonthTotal(0);
+      setMonthNet(0);
       setMonthCount(0);
       setGroupTotals([]);
       setRecentCategories([]);
@@ -73,9 +79,9 @@ export default function Dashboard() {
         });
         const top5 = withGroup.slice(0, 5);
         const todays = withGroup.filter((t) => t.date === todayStr);
-        const todaySum = todays.reduce((s, t) => s + (t.amount || 0), 0);
+        const todayNetVal = todays.reduce((s, t) => s + signedAmount(t), 0);
         const todayNum = todays.length;
-        const monthSum = withGroup.reduce((s, t) => s + (t.amount || 0), 0);
+        const monthNetVal = withGroup.reduce((s, t) => s + signedAmount(t), 0);
         const monthNum = withGroup.length;
         const catMap = {};
         catResults.forEach((data) => {
@@ -87,16 +93,16 @@ export default function Dashboard() {
         withGroup.forEach((t) => {
           const gid = t._groupId;
           const gname = t._groupName || gid;
-          if (!byGroup[gid]) byGroup[gid] = { groupName: gname, total: 0, lastUsed: 0 };
-          byGroup[gid].total += t.amount || 0;
+          if (!byGroup[gid]) byGroup[gid] = { groupName: gname, net: 0, lastUsed: 0 };
+          byGroup[gid].net += signedAmount(t);
           const ts = t.createdAt ? new Date(t.createdAt).getTime() : 0;
           if (ts > byGroup[gid].lastUsed) byGroup[gid].lastUsed = ts;
         });
         const groupTotalsList = Object.entries(byGroup)
-          .map(([groupId, { groupName, total, lastUsed }]) => ({
+          .map(([groupId, { groupName, net, lastUsed }]) => ({
             groupId,
             groupName,
-            total,
+            net,
             lastUsed,
           }))
           .sort((a, b) => b.lastUsed - a.lastUsed)
@@ -105,25 +111,25 @@ export default function Dashboard() {
         const byCategory = {};
         withGroup.forEach((t) => {
           const cid = t.categoryId || "default-other";
-          if (!byCategory[cid]) byCategory[cid] = { total: 0, lastUsed: 0 };
-          byCategory[cid].total += t.amount || 0;
+          if (!byCategory[cid]) byCategory[cid] = { net: 0, lastUsed: 0 };
+          byCategory[cid].net += signedAmount(t);
           const ts = t.createdAt ? new Date(t.createdAt).getTime() : 0;
           if (ts > byCategory[cid].lastUsed) byCategory[cid].lastUsed = ts;
         });
         const recentCategoriesList = Object.entries(byCategory)
-          .map(([categoryId, { total, lastUsed }]) => ({
+          .map(([categoryId, { net, lastUsed }]) => ({
             categoryId,
             categoryName: catMap[categoryId] || categoryId,
-            total,
+            net,
             lastUsed,
           }))
           .sort((a, b) => b.lastUsed - a.lastUsed)
           .slice(0, 3);
 
         setRecent(top5);
-        setTodayTotal(todaySum);
+        setTodayNet(todayNetVal);
         setTodayCount(todayNum);
-        setMonthTotal(monthSum);
+        setMonthNet(monthNetVal);
         setMonthCount(monthNum);
         setGroupTotals(groupTotalsList);
         setRecentCategories(recentCategoriesList);
@@ -131,9 +137,9 @@ export default function Dashboard() {
       } catch (_) {
         if (!cancelled) {
           setRecent([]);
-          setTodayTotal(0);
+          setTodayNet(0);
           setTodayCount(0);
-          setMonthTotal(0);
+          setMonthNet(0);
           setMonthCount(0);
           setGroupTotals([]);
           setRecentCategories([]);
@@ -175,9 +181,9 @@ export default function Dashboard() {
         <div className="space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Today</p>
-              <p className="text-2xl font-semibold text-foreground">
-                {todayTotal.toFixed(2)}
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Today&apos;s net</p>
+              <p className={`text-2xl font-semibold ${todayNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {todayNet >= 0 ? "+" : ""}{todayNet.toFixed(2)}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {todayCount} {todayCount === 1 ? "transaction" : "transactions"}
@@ -185,10 +191,10 @@ export default function Dashboard() {
             </div>
             <div className="rounded-xl border border-border bg-muted/30 p-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                This month
+                This month&apos;s net
               </p>
-              <p className="text-2xl font-semibold text-foreground">
-                {monthTotal.toFixed(2)}
+              <p className={`text-2xl font-semibold ${monthNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {monthNet >= 0 ? "+" : ""}{monthNet.toFixed(2)}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {monthCount} {monthCount === 1 ? "transaction" : "transactions"}
@@ -202,7 +208,7 @@ export default function Dashboard() {
                 By group (most recent)
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {groupTotals.map(({ groupId, groupName, total }) => (
+                {groupTotals.map(({ groupId, groupName, net }) => (
                   <div
                     key={groupId}
                     className="rounded-xl border border-border bg-muted/20 p-4"
@@ -210,8 +216,8 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-muted-foreground truncate">
                       {groupName}
                     </p>
-                    <p className="text-xl font-semibold text-foreground mt-0.5">
-                      {total.toFixed(2)}
+                    <p className={`text-xl font-semibold mt-0.5 ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {net >= 0 ? "+" : ""}{net.toFixed(2)}
                     </p>
                   </div>
                 ))}
@@ -225,7 +231,7 @@ export default function Dashboard() {
                 Recent categories
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {recentCategories.map(({ categoryId, categoryName, total }) => (
+                {recentCategories.map(({ categoryId, categoryName, net }) => (
                   <div
                     key={categoryId}
                     className="rounded-xl border border-border bg-muted/20 p-4"
@@ -233,8 +239,8 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-muted-foreground truncate">
                       {categoryName}
                     </p>
-                    <p className="text-xl font-semibold text-foreground mt-0.5">
-                      {total.toFixed(2)}
+                    <p className={`text-xl font-semibold mt-0.5 ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {net >= 0 ? "+" : ""}{net.toFixed(2)}
                     </p>
                   </div>
                 ))}
@@ -268,7 +274,9 @@ export default function Dashboard() {
                             : "—"}
                         </TableCell>
                         <TableCell>{t._groupName}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{t.amount}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          {signedAmount(t) >= 0 ? "+" : ""}{signedAmount(t)}
+                        </TableCell>
                         <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
                         <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>

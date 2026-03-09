@@ -57,7 +57,8 @@ Transactions GSI: **by-user-date** (hash: `userId`, range: `sk`) for list-by-use
 - **Attributes:**
   - `transactionId` (UUID, also embedded in sk),
   - `date` (YYYY-MM-DD),
-  - `amount` (number),
+  - `amount` (number, non-negative),
+  - `transactionType` ("debit" \| "credit") — debit = spend, credit = income; default "debit" for backward compatibility,
   - `categoryId`,
   - `groupId`,
   - `userId` (owner/creator from Cognito sub),

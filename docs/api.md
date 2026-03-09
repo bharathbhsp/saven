@@ -67,9 +67,9 @@ All errors return JSON:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /groups/:groupId/transactions | List. Query: **one of** `day=YYYY-MM-DD`, `month=YYYY-MM`, or `startDate` + `endDate` (YYYY-MM-DD) |
-| POST | /groups/:groupId/transactions | Create. Body: `{ "amount": number, "date": "YYYY-MM-DD", "categoryId": "string", "note"?: "string" }` |
+| POST | /groups/:groupId/transactions | Create. Body: `{ "amount": number, "transactionType"?: "debit" \| "credit" (default debit), "date": "YYYY-MM-DD", "categoryId": "string", "note"?: "string" }`. Use **credit** for income, **debit** for spend. |
 | GET | /groups/:groupId/transactions/:transactionId | Get one. Query: `date=YYYY-MM-DD` required |
-| PATCH | /groups/:groupId/transactions/:transactionId | Update. Body: `{ "date": "YYYY-MM-DD" (required), "amount"?, "categoryId"?, "note"? }` |
+| PATCH | /groups/:groupId/transactions/:transactionId | Update. Body: `{ "date": "YYYY-MM-DD" (required), "amount"?, "transactionType"?, "categoryId"?, "note"? }` |
 | DELETE | /groups/:groupId/transactions/:transactionId | Delete. Query or body: `date=YYYY-MM-DD` required |
 
 ---

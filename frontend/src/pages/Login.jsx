@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { APP_NAME } from "../config";
 
 function SavenIcon() {
   return (
@@ -33,7 +34,7 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-muted/30 gap-8">
       <SavenIcon />
       <div className="w-full max-w-sm bg-card rounded-xl border border-border shadow-lg p-10 text-center">
-        <h1 className="text-2xl font-semibold text-foreground mb-1">Saven</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-1">{APP_NAME}</h1>
         <p className="text-muted-foreground text-sm mb-8">Spend less, together.</p>
         <button
           type="button"

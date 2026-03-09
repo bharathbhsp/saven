@@ -23,6 +23,11 @@ if [ "$STAGE" = "dev" ] || [ "$STAGE" = "prod" ]; then
   export VITE_COGNITO_CLIENT_ID=$(terraform output -raw cognito_app_client_id 2>/dev/null)
   export VITE_COGNITO_DOMAIN=$(terraform output -raw cognito_domain 2>/dev/null)
   export VITE_AWS_REGION="${VITE_AWS_REGION:-ap-south-2}"
+  if [ "$STAGE" = "dev" ]; then
+    export VITE_APP_NAME="SavenDev"
+  else
+    export VITE_APP_NAME="Saven"
+  fi
   cd "$ROOT/frontend"
 fi
 

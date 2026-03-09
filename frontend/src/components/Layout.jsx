@@ -1,9 +1,15 @@
+import { useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { APP_NAME } from "../config";
 
 export default function Layout() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = `${APP_NAME} — Spend tracking`;
+  }, []);
 
   const linkClass = ({ isActive }) =>
     isActive
@@ -23,7 +29,7 @@ export default function Layout() {
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
                 S
               </span>
-              <span className="tracking-tight">Saven</span>
+              <span className="tracking-tight">{APP_NAME}</span>
             </button>
             <nav className="flex gap-4 sm:gap-6 text-xs sm:text-sm">
               <NavLink to="/" end className={linkClass}>

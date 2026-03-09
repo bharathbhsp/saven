@@ -43,8 +43,11 @@ async function csv(params, body, userId, query) {
   const result = await fetchTransactions(groupId, userId, query);
   if (result.err) return result.err;
   const rows = result.transactions;
-  const header = "Date,Amount,Category ID,Note\n";
-  const bodyRows = rows.map((t) => [t.date, t.amount, t.categoryId || "", t.note || ""].map(csvEscape).join(",")).join("\n");
+  const header = "Date,Type,Amount,Category ID,Note\n";
+  const bodyRows = rows.map((t) => {
+    const type = t.transactionType === "credit" ? "credit" : "debit";
+    return [t.date, type, t.amount, t.categoryId || "", t.note || ""].map(csvEscape).join(",");
+  }).join("\n");
   const csvBody = header + bodyRows;
   const filename = `saven-export-${params.groupId}-${query.startDate || "range"}.csv`;
   return raw(200, csvBody, {
@@ -75,14 +78,17 @@ async function pdf(params, body, userId, query) {
   docPdf.fontSize(10);
   const tableTop = docPdf.y;
   docPdf.text("Date", 50, tableTop);
+  docPdf.text("Type", 110, tableTop);
   docPdf.text("Amount", 150, tableTop);
-  docPdf.text("Category", 250, tableTop);
+  docPdf.text("Category", 220, tableTop);
   docPdf.text("Note", 350, tableTop);
   let y = tableTop + 15;
   for (const t of rows) {
+    const type = t.transactionType === "credit" ? "credit" : "debit";
     docPdf.text(t.date || "", 50, y);
+    docPdf.text(type, 110, y);
     docPdf.text(String(t.amount ?? ""), 150, y);
-    docPdf.text((t.categoryId || "").slice(0, 20), 250, y);
+    docPdf.text((t.categoryId || "").slice(0, 18), 220, y);
     docPdf.text((t.note || "").slice(0, 30), 350, y);
     y += 14;
     if (y > 700) {

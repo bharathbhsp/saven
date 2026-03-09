@@ -14,6 +14,11 @@ import { api } from "../api/client";
 
 const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
+function signedAmount(t) {
+  const amt = t.amount ?? 0;
+  return t.transactionType === "credit" ? amt : -amt;
+}
+
 function downloadBlob(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -103,7 +108,7 @@ export default function Transactions() {
     return () => { cancelled = true; };
   }, [token, groupId, filter, day, month, startDate, endDate]);
 
-  const total = transactions.reduce((s, t) => s + (t.amount || 0), 0);
+  const net = transactions.reduce((s, t) => s + signedAmount(t), 0);
   const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
   // Sort by date of entry (createdAt), latest first; items without createdAt go last
   const sortedTransactions = [...transactions].sort((a, b) => {
@@ -245,7 +250,10 @@ export default function Transactions() {
           ) : (
             <>
               <p className="text-lg font-medium text-foreground">
-                Total: {total.toFixed(2)}{" "}
+                Net:{" "}
+                <span className={net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
+                  {net >= 0 ? "+" : ""}{net.toFixed(2)}
+                </span>{" "}
                 <span className="text-sm text-muted-foreground">
                   ({transactions.length} {transactions.length === 1 ? "transaction" : "transactions"})
                 </span>
@@ -258,6 +266,7 @@ export default function Transactions() {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
+                        <TableCell>Type</TableCell>
                         <TableCell>Amount</TableCell>
                         <TableCell>Payment mode</TableCell>
                         <TableCell>Category</TableCell>
@@ -273,7 +282,17 @@ export default function Transactions() {
                               ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
                               : "—"}
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{t.amount}</TableCell>
+                          <TableCell sx={{ textTransform: "capitalize" }}>
+                            {(t.transactionType || "debit") === "credit" ? "Credit" : "Spend"}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              fontWeight: 600,
+                              color: signedAmount(t) >= 0 ? "success.main" : "error.main",
+                            }}
+                          >
+                            {signedAmount(t) >= 0 ? "+" : ""}{signedAmount(t)}
+                          </TableCell>
                           <TableCell>{t.paymentMode || "—"}</TableCell>
                           <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
                           <TableCell sx={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{t.note ?? "—"}</TableCell>

@@ -13,6 +13,7 @@ export default function AddTransaction() {
   const [groups, setGroups] = useState([]);
   const [categories, setCategories] = useState([]);
   const [groupId, setGroupId] = useState("");
+  const [transactionType, setTransactionType] = useState("debit"); // debit = spend, credit = income
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState("");
@@ -65,6 +66,7 @@ export default function AddTransaction() {
         method: "POST",
         body: JSON.stringify({
           amount: num,
+          transactionType: transactionType === "credit" ? "credit" : "debit",
           date,
           categoryId,
           note: note.trim() || undefined,
@@ -96,8 +98,21 @@ export default function AddTransaction() {
           </select>
         </label>
         <label>
+          <span className={labelClass}>Type</span>
+          <div className="flex gap-4 mt-1">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="transactionType" value="debit" checked={transactionType === "debit"} onChange={() => setTransactionType("debit")} className="rounded-full border-input" />
+              <span className="text-sm text-foreground">Spend</span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="transactionType" value="credit" checked={transactionType === "credit"} onChange={() => setTransactionType("credit")} className="rounded-full border-input" />
+              <span className="text-sm text-foreground">Credit</span>
+            </label>
+          </div>
+        </label>
+        <label>
           <span className={labelClass}>Amount</span>
-          <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputClass} />
+          <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputClass} placeholder="0.00" />
         </label>
         <label>
           <span className={labelClass}>Date</span>

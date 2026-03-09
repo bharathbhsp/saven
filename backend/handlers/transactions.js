@@ -47,7 +47,9 @@ async function create(params, body, userId) {
   const amount = body && body.amount;
   const date = body && body.date;
   const categoryId = body && body.categoryId;
+  let transactionType = (body && body.transactionType) === "credit" ? "credit" : "debit";
   if (amount === undefined || amount === null || typeof amount !== "number") return badRequest("amount (number) is required");
+  if (amount < 0) return badRequest("amount must be non-negative; use transactionType 'credit' or 'debit' to indicate direction");
   if (!date || !DATE_RE.test(date)) return badRequest("date (YYYY-MM-DD) is required");
   if (!categoryId || typeof categoryId !== "string" || !categoryId.trim()) return badRequest("categoryId is required");
   const transactionId = uuid();
@@ -59,6 +61,7 @@ async function create(params, body, userId) {
     transactionId,
     date,
     amount,
+    transactionType,
     categoryId: categoryId.trim(),
     userId,
     createdBy: userId,
@@ -102,8 +105,14 @@ async function update(params, body, userId) {
   const names = {};
   const values = { ":t": now() };
   if (body.amount !== undefined && typeof body.amount === "number") {
+    if (body.amount < 0) return badRequest("amount must be non-negative");
     updates.push("amount = :a");
     values[":a"] = body.amount;
+  }
+  if (body.transactionType !== undefined) {
+    const tt = body.transactionType === "credit" ? "credit" : "debit";
+    updates.push("transactionType = :tt");
+    values[":tt"] = tt;
   }
   if (body.categoryId !== undefined && typeof body.categoryId === "string") {
     updates.push("categoryId = :c");

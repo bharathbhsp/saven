@@ -11,9 +11,9 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment (dev, staging, prod)"
+  description = "Environment (dev, staging, prod). Prod root default is prod so running from infra/prod without -var-file still targets prod."
   type        = string
-  default     = "dev"
+  default     = "prod"
 }
 
 variable "cognito_domain" {
