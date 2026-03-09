@@ -85,7 +85,7 @@ export default function AddTransaction() {
           paymentMode: paymentMode.trim() || "",
         }),
       });
-      navigate("/");
+      navigate(`/transactions?groupId=${encodeURIComponent(groupId)}`);
     } catch (e) {
       setError(e.message || "Failed to add transaction");
     } finally {

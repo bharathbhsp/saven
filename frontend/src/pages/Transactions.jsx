@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -61,6 +61,7 @@ const inputClassFull =
 
 export default function Transactions() {
   const { token, user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState("");
   const [transactions, setTransactions] = useState([]);
@@ -91,8 +92,16 @@ export default function Transactions() {
       try {
         const data = await api(() => token, "/groups");
         if (!cancelled) {
-          setGroups(data.groups || []);
-          if ((data.groups || []).length > 0 && !groupId) setGroupId(data.groups[0].id);
+          const list = data.groups || [];
+          setGroups(list);
+          const fromUrl = searchParams.get("groupId");
+          if (list.length > 0) {
+            if (fromUrl && list.some((g) => g.id === fromUrl)) {
+              setGroupId(fromUrl);
+            } else if (!groupId) {
+              setGroupId(list[0].id);
+            }
+          }
         }
       } catch (_) {}
     })();
