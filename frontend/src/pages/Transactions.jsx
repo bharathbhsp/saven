@@ -60,6 +60,8 @@ const PAYMENT_OPTIONS_EDIT = [
 const inputClassFull =
   "w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
+const ALL_GROUPS_ID = "__all_groups__";
+
 export default function Transactions() {
   const { token, user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -99,7 +101,9 @@ export default function Transactions() {
           setGroups(list);
           const fromUrl = searchParams.get("groupId");
           if (list.length > 0) {
-            if (fromUrl && list.some((g) => g.id === fromUrl)) {
+            if (fromUrl === ALL_GROUPS_ID) {
+              setGroupId(ALL_GROUPS_ID);
+            } else if (fromUrl && list.some((g) => g.id === fromUrl)) {
               setGroupId(fromUrl);
             } else if (!groupId) {
               setGroupId(list[0].id);
@@ -155,11 +159,35 @@ export default function Transactions() {
       try {
         setError(null);
         const q = queryString();
-        const data = await api(
-          () => token,
-          `/groups/${groupId}/transactions?${q}`
-        );
-        if (!cancelled) setTransactions(data.transactions || []);
+        if (groupId === ALL_GROUPS_ID) {
+          if (!groups || groups.length === 0) {
+            if (!cancelled) {
+              setTransactions([]);
+            }
+          } else {
+            const results = await Promise.all(
+              groups.map((g) =>
+                api(() => token, `/groups/${g.id}/transactions?${q}`).catch(() => ({ transactions: [] }))
+              )
+            );
+            if (!cancelled) {
+              const merged = results.flatMap((res, idx) =>
+                (res.transactions || []).map((t) => ({
+                  ...t,
+                  groupId: groups[idx].id,
+                  groupName: groups[idx].name,
+                }))
+              );
+              setTransactions(merged);
+            }
+          }
+        } else {
+          const data = await api(
+            () => token,
+            `/groups/${groupId}/transactions?${q}`
+          );
+          if (!cancelled) setTransactions(data.transactions || []);
+        }
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load");
       } finally {
@@ -167,10 +195,11 @@ export default function Transactions() {
       }
     })();
     return () => { cancelled = true; };
-  }, [token, groupId, filter, day, month, startDate, endDate, paymentFilter, typeFilter]);
+  }, [token, groups, groupId, filter, day, month, startDate, endDate, paymentFilter, typeFilter]);
 
   const net = transactions.reduce((s, t) => s + signedAmount(t), 0);
   const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
+  const groupIdToName = Object.fromEntries((groups || []).map((g) => [g.id, g.name]));
   // Sort by date of entry (createdAt), latest first; items without createdAt go last
   const sortedTransactions = [...transactions].sort((a, b) => {
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -358,6 +387,7 @@ export default function Transactions() {
               className={inputClass}
               aria-label="Group"
             >
+              <option value={ALL_GROUPS_ID}>All groups</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
@@ -479,6 +509,7 @@ export default function Transactions() {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
+                        <TableCell>Group</TableCell>
                         <TableCell>Type</TableCell>
                         <TableCell>Amount (₹)</TableCell>
                         <TableCell>Payment mode</TableCell>
@@ -495,6 +526,11 @@ export default function Transactions() {
                             {t.createdAt
                               ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
                               : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {groupId === ALL_GROUPS_ID
+                              ? t.groupName || groupIdToName[t.groupId] || "—"
+                              : groupIdToName[groupId] || "—"}
                           </TableCell>
                           <TableCell sx={{ textTransform: "capitalize" }}>
                             {getTransactionType(t) === "credit" ? "Credit" : "Spend"}
