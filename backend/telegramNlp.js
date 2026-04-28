@@ -31,7 +31,7 @@ async function getOpenAiKey() {
   }
 }
 
-const SYSTEM_PROMPT = `You extract spending/expense data from short user messages. Reply with JSON only, no other text.
+const SYSTEM_PROMPT = `You extract transaction data (spend and income) from short user messages. Reply with JSON only, no other text.
 Output shape: { "amount": number, "categoryHint": string, "date": "YYYY-MM-DD", "note": string or null, "groupHint": string or null, "paymentMode": string or null, "transactionType": "debit" or "credit" or null }
 - amount: positive number (currency units). Required.
 - categoryHint: MUST be one of the provided Categories if the expense clearly fits; otherwise a short label (e.g. "coffee", "groceries"). Use "Other" only if nothing fits.
@@ -40,7 +40,7 @@ Output shape: { "amount": number, "categoryHint": string, "date": "YYYY-MM-DD", 
 - groupHint: optional group name for WHICH Saven group this should be recorded to. Only set groupHint when the message clearly refers to a group, e.g. using @GroupName or by naming a group from the provided list. When you set groupHint, it MUST exactly match one of the provided group names (case-sensitive) so the app can resolve it; otherwise use null.
 - paymentMode: optional payment mode for HOW the expense was paid. When obvious from the message (e.g. "via UPI", "by cash", "credit card"), set this to one of exactly: "UPI", "Cash", "Credit card", "Debit card", "Netbanking", "Wallet", "Other". If the payment method is not clear, use null.
 - transactionType: "debit" for spend/expense/outflow, "credit" for income/inflow/refund/received money. If unclear but it's an expense-style message, use "debit".
-If the message is not about recording a spend/expense, return { "amount": null } to indicate no transaction.`;
+If the message is not about recording a transaction, return { "amount": null } to indicate no transaction.`;
 
 /**
  * Call GPT-4o mini to extract transaction fields from user message.
