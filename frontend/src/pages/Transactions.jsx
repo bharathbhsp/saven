@@ -66,7 +66,7 @@ export default function Transactions() {
   const { token, user } = useAuth();
   const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState([]);
-  const [groupId, setGroupId] = useState("");
+  const [groupId, setGroupId] = useState(ALL_GROUPS_ID);
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +106,7 @@ export default function Transactions() {
             } else if (fromUrl && list.some((g) => g.id === fromUrl)) {
               setGroupId(fromUrl);
             } else if (!groupId) {
-              setGroupId(list[0].id);
+              setGroupId(ALL_GROUPS_ID);
             }
           }
         }
