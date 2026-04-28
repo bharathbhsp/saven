@@ -110,17 +110,38 @@ function todayStr() {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
+function inferTransactionType(text, fallback = "debit") {
+  const t = String(text || "").toLowerCase();
+  if (
+    /\b(received|receive|salary|income|credited|credit|refund|cashback|reimbursement|bonus|interest)\b/.test(t)
+  ) {
+    return "credit";
+  }
+  if (/\b(spent|spend|paid|pay|expense|bought|debit|purchase)\b/.test(t)) {
+    return "debit";
+  }
+  return fallback;
+}
+
 /** Parse /add 50 Food [date] [group] — Option A: optional group name/id at end */
 function parseAddArgs(text) {
   const rest = text.replace(/^\s*\/add\s*/i, "").trim();
-  const parts = rest.split(/\s+/);
+  const parts = rest.split(/\s+/).filter(Boolean);
   if (parts.length < 2) return { err: "Use: /add &lt;amount&gt; &lt;category&gt; [date] [group]\nExample: /add 50 Food or /add 50 Food Household" };
-  const amount = parseFloat(parts[0]);
+  let transactionType = "debit";
+  let amountIdx = 0;
+  const first = parts[0].toLowerCase();
+  if (first === "credit" || first === "debit") {
+    transactionType = first;
+    amountIdx = 1;
+  }
+  const amount = parseFloat(parts[amountIdx]);
   if (Number.isNaN(amount) || amount <= 0) return { err: "Amount must be a positive number." };
-  const categoryPart = parts[1];
+  const categoryPart = parts[amountIdx + 1];
+  if (!categoryPart) return { err: "Category is required." };
   let date = todayStr();
   let groupHint = null;
-  for (let i = 2; i < parts.length; i++) {
+  for (let i = amountIdx + 2; i < parts.length; i++) {
     const p = parts[i];
     if (DATE_RE.test(p)) {
       date = p;
@@ -129,7 +150,7 @@ function parseAddArgs(text) {
       if (cleaned) groupHint = cleaned;
     }
   }
-  return { amount, categoryHint: categoryPart, date, groupHint };
+  return { amount, categoryHint: categoryPart, date, groupHint, transactionType };
 }
 
 /** Simple free-text: "50 coffee", "20 groceries yesterday", "50 coffee Household" — Option A: optional group at end */
@@ -153,7 +174,13 @@ function parseFreeText(text) {
       }
     }
     const catPart = rest || "Other";
-    return { amount, categoryHint: catPart, date, groupHint: groupHint || undefined };
+    return {
+      amount,
+      categoryHint: catPart,
+      date,
+      groupHint: groupHint || undefined,
+      transactionType: inferTransactionType(t, "debit"),
+    };
   }
   const simple = t.match(/^(\d+(?:\.\d+)?)\s+(?:on\s+)?(.+?)(?:\s+(yesterday|today))?$/i);
   if (simple) {
@@ -170,17 +197,38 @@ function parseFreeText(text) {
         catPart = catPart.slice(0, lastSpace).trim();
       }
     }
-    return { amount, categoryHint: catPart || "Other", date, groupHint: groupHint || undefined };
+    return {
+      amount,
+      categoryHint: catPart || "Other",
+      date,
+      groupHint: groupHint || undefined,
+      transactionType: inferTransactionType(t, "debit"),
+    };
   }
   const withGroup = t.match(/^(\d+(?:\.\d+)?)\s+(.+?)\s+@([A-Za-z0-9_-]+)$/);
   if (withGroup) {
     const amount = parseFloat(withGroup[1]);
     const mid = withGroup[2].trim();
     const last = withGroup[3];
-    if (!DATE_RE.test(last)) return { amount, categoryHint: mid, date: todayStr(), groupHint: last };
+    if (!DATE_RE.test(last)) {
+      return {
+        amount,
+        categoryHint: mid,
+        date: todayStr(),
+        groupHint: last,
+        transactionType: inferTransactionType(t, "debit"),
+      };
+    }
   }
   const justAmount = t.match(/^(\d+(?:\.\d+)?)\s*$/);
-  if (justAmount) return { amount: parseFloat(justAmount[1]), categoryHint: "Other", date: todayStr() };
+  if (justAmount) {
+    return {
+      amount: parseFloat(justAmount[1]),
+      categoryHint: "Other",
+      date: todayStr(),
+      transactionType: "debit",
+    };
+  }
   return null;
 }
 
@@ -229,7 +277,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     await sendMessage(token, chatId,
       "👋 <b>Saven</b> — track spend from Telegram.\n\n" +
       "Commands:\n" +
-      "• /add &lt;amount&gt; &lt;category&gt; [date] [group] — record spend\n" +
+      "• /add [credit|debit] &lt;amount&gt; &lt;category&gt; [date] [group] — record transaction\n" +
       "• /today — today's summary\n" +
       "• /month [YYYY-MM] — monthly summary\n" +
       "• /range &lt;start&gt; &lt;end&gt; — summary for date range\n" +
@@ -298,7 +346,13 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
     const groupName = userGroups.find((g) => g.id === groupId)?.name || groupId;
     const createRes = await transactions.create(
       { groupId },
-      { amount: parsed.amount, date: parsed.date, categoryId, note: "via Telegram" },
+      {
+        amount: parsed.amount,
+        date: parsed.date,
+        categoryId,
+        note: "via Telegram",
+        transactionType: parsed.transactionType || "debit",
+      },
       userId
     );
     if (createRes.statusCode === 201) {
@@ -316,6 +370,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         chatId,
         [
           `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
+          `• Type: ${tx.transactionType === "credit" ? "Credit" : "Spend"}`,
           `• Date: ${tx.date}`,
           `• Category: ${categoryName}`,
           `• Note: ${noteText}`,
@@ -368,7 +423,10 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         continue;
       }
       const txList = data.transactions || [];
-      const groupTotal = txList.reduce((s, t) => s + (t.amount || 0), 0);
+      const groupTotal = txList.reduce(
+        (s, t) => s + ((t.transactionType === "credit" ? 1 : -1) * (t.amount || 0)),
+        0
+      );
       total += groupTotal;
       if (txList.length > 0) lines.push(`<b>${g.name}</b>: ${groupTotal.toFixed(2)} (${txList.length} tx)`);
     }
@@ -442,7 +500,10 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         continue;
       }
       const txList = data.transactions || [];
-      const groupTotal = txList.reduce((s, t) => s + (t.amount || 0), 0);
+      const groupTotal = txList.reduce(
+        (s, t) => s + ((t.transactionType === "credit" ? 1 : -1) * (t.amount || 0)),
+        0
+      );
       total += groupTotal;
       if (txList.length > 0) lines.push(`<b>${g.name}</b>: ${groupTotal.toFixed(2)} (${txList.length} tx)`);
     }
@@ -492,7 +553,10 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         continue;
       }
       const txList = data.transactions || [];
-      const groupTotal = txList.reduce((s, t) => s + (t.amount || 0), 0);
+      const groupTotal = txList.reduce(
+        (s, t) => s + ((t.transactionType === "credit" ? 1 : -1) * (t.amount || 0)),
+        0
+      );
       total += groupTotal;
       if (txList.length > 0) lines.push(`<b>${g.name}</b>: ${groupTotal.toFixed(2)} (${txList.length} tx)`);
     }
@@ -593,6 +657,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         categoryId,
         note: free.fromNlp ? (free.note ?? "") : "via Telegram (free text)",
         paymentMode: free.paymentMode || "",
+        transactionType: free.transactionType || inferTransactionType(text, "debit"),
       },
       userId
     );
@@ -614,6 +679,7 @@ async function handleMessage(telegramUserId, chatId, chatType, text, token, user
         chatId,
         [
           `✅ Recorded ${tx.amount} in <b>${groupName}</b>`,
+          `• Type: ${tx.transactionType === "credit" ? "Credit" : "Spend"}`,
           `• Date: ${tx.date}`,
           `• Category: ${categoryName}`,
           `• Payment mode: ${paymentText}`,
