@@ -250,6 +250,8 @@ export default function Groups() {
                     <Table size="small" stickyHeader aria-label="Group members">
                       <TableHead>
                         <TableRow>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Email</TableCell>
                           <TableCell>User ID</TableCell>
                           <TableCell>Role</TableCell>
                           <TableCell sx={{ whiteSpace: "nowrap" }}>Joined at</TableCell>
@@ -259,6 +261,8 @@ export default function Groups() {
                       <TableBody>
                         {members.map((m) => (
                           <TableRow key={m.userId} hover>
+                            <TableCell>{m.name || "—"}</TableCell>
+                            <TableCell sx={{ fontSize: "0.875rem" }}>{m.email || "—"}</TableCell>
                             <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all" }}>{m.userId}</TableCell>
                             <TableCell>{m.role || "member"}</TableCell>
                             <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>

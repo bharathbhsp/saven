@@ -5,20 +5,39 @@ const { json, badRequest, forbidden, notFound } = require("../responses");
 const userPoolId = process.env.COGNITO_USER_POOL_ID;
 const cognito = userPoolId ? new CognitoIdentityProviderClient({}) : null;
 
+function cognitoAttr(user, name) {
+  const attr = (user.Attributes || []).find((a) => a.Name === name);
+  return attr ? attr.Value : undefined;
+}
+
+function profileFromCognitoUser(user) {
+  if (!user) return {};
+  const email = cognitoAttr(user, "email");
+  const name = cognitoAttr(user, "name") || cognitoAttr(user, "preferred_username") || email;
+  const sub = cognitoAttr(user, "sub") || user.Username;
+  return { userId: sub, name, email };
+}
+
+async function listCognitoUsers(Filter, Limit = 2) {
+  if (!cognito || !userPoolId) return [];
+  const cmd = new ListUsersCommand({
+    UserPoolId: userPoolId,
+    Filter,
+    Limit,
+  });
+  const res = await cognito.send(cmd);
+  return res.Users || [];
+}
+
 async function resolveUserIdByEmail(email) {
   if (!cognito || !userPoolId) return null;
   const trimmed = email && typeof email === "string" ? email.trim() : "";
   if (!trimmed) return null;
   // Cognito ListUsers filter: exact match. Use plain quotes; SDK escapes when serializing to JSON.
   const Filter = `email = "${trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  const cmd = new ListUsersCommand({
-    UserPoolId: userPoolId,
-    Filter,
-    Limit: 2,
-  });
-  let res;
+  let users;
   try {
-    res = await cognito.send(cmd);
+    users = await listCognitoUsers(Filter, 2);
   } catch (err) {
     const code = err.name || err.code || "";
     const msg = err.message || String(err);
@@ -30,10 +49,20 @@ async function resolveUserIdByEmail(email) {
     }
     throw new Error(msg || "Could not look up user by email.");
   }
-  const users = res.Users || [];
   if (users.length !== 1) return null;
-  const subAttr = (users[0].Attributes || []).find((a) => a.Name === "sub");
-  return subAttr ? subAttr.Value : users[0].Username;
+  return profileFromCognitoUser(users[0]).userId;
+}
+
+async function resolveProfileByUserId(userId) {
+  if (!cognito || !userPoolId || !userId) return {};
+  const escaped = String(userId).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  try {
+    const users = await listCognitoUsers(`sub = "${escaped}"`, 1);
+    if (users.length === 1) return profileFromCognitoUser(users[0]);
+  } catch (_) {
+    /* leave name/email unset if lookup fails */
+  }
+  return {};
 }
 
 async function list(params, body, userId) {
@@ -45,7 +74,18 @@ async function list(params, body, userId) {
     KeyConditionExpression: "groupId = :gid",
     ExpressionAttributeValues: { ":gid": groupId },
   }).promise();
-  return json(200, { members: r.Items || [] });
+  const items = r.Items || [];
+  const members = await Promise.all(
+    items.map(async (m) => {
+      const profile = await resolveProfileByUserId(m.userId);
+      return {
+        ...m,
+        name: profile.name || undefined,
+        email: profile.email || undefined,
+      };
+    })
+  );
+  return json(200, { members });
 }
 
 async function add(params, body, userId) {
@@ -69,7 +109,15 @@ async function add(params, body, userId) {
     TableName: TABLES.group_members,
     Item: { groupId, userId: targetUserId, role: "member", joinedAt: ts },
   }).promise();
-  const member = { groupId, userId: targetUserId, role: "member", joinedAt: ts };
+  const profile = await resolveProfileByUserId(targetUserId);
+  const member = {
+    groupId,
+    userId: targetUserId,
+    role: "member",
+    joinedAt: ts,
+    name: profile.name || undefined,
+    email: profile.email || email.trim(),
+  };
   return json(201, { member });
 }
 

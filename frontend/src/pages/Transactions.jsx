@@ -186,7 +186,14 @@ export default function Transactions() {
             () => token,
             `/groups/${groupId}/transactions?${q}`
           );
-          if (!cancelled) setTransactions(data.transactions || []);
+          if (!cancelled) {
+            setTransactions(
+              (data.transactions || []).map((t) => ({
+                ...t,
+                groupId: t.groupId || groupId,
+              }))
+            );
+          }
         }
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load");
@@ -271,12 +278,15 @@ export default function Transactions() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteConfirmTransaction || !groupId) return;
+    const targetGroupId =
+      deleteConfirmTransaction?.groupId ||
+      (groupId !== ALL_GROUPS_ID ? groupId : null);
+    if (!deleteConfirmTransaction || !targetGroupId) return;
     setDeleteDeleting(true);
     try {
       await api(
         () => token,
-        `/groups/${groupId}/transactions/${deleteConfirmTransaction.transactionId}?date=${encodeURIComponent(deleteConfirmTransaction.date)}`,
+        `/groups/${targetGroupId}/transactions/${deleteConfirmTransaction.transactionId}?date=${encodeURIComponent(deleteConfirmTransaction.date)}`,
         { method: "DELETE" }
       );
       setTransactions((prev) =>
@@ -296,7 +306,10 @@ export default function Transactions() {
 
   async function handleEditSubmit(e) {
     e.preventDefault();
-    if (!editingTransaction || !groupId) return;
+    const targetGroupId =
+      editingTransaction?.groupId ||
+      (groupId !== ALL_GROUPS_ID ? groupId : null);
+    if (!editingTransaction || !targetGroupId) return;
     const num = parseFloat(editForm.amount, 10);
     if (Number.isNaN(num) || num < 0) {
       setEditError("Amount must be a non-negative number.");
@@ -309,7 +322,7 @@ export default function Transactions() {
     setEditSaving(true);
     setEditError(null);
     try {
-      await api(() => token, `/groups/${groupId}/transactions/${editingTransaction.transactionId}`, {
+      await api(() => token, `/groups/${targetGroupId}/transactions/${editingTransaction.transactionId}`, {
         method: "PATCH",
         body: JSON.stringify({
           date: editingTransaction.date,
