@@ -214,8 +214,11 @@ export default function Transactions() {
   const net = transactions.reduce((s, t) => s + signedAmount(t), 0);
   const categoryIdToName = Object.fromEntries((categories || []).map((c) => [c.categoryId, c.name]));
   const groupIdToName = Object.fromEntries((groups || []).map((g) => [g.id, g.name]));
-  // Sort by date of entry (createdAt), latest first; items without createdAt go last
+  // Sort by transaction date (date), latest first; same-day ties by date of entry
   const sortedTransactions = [...transactions].sort((a, b) => {
+    const da = a.date || "";
+    const db = b.date || "";
+    if (da !== db) return db.localeCompare(da);
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return tb - ta;
