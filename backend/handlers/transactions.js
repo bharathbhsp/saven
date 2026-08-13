@@ -142,43 +142,79 @@ async function update(params, body, userId) {
     Key: { groupId, sk },
   }).promise();
   if (!existing.Item) return notFound("Transaction not found");
-  const updates = [];
-  const names = {};
-  const values = { ":t": now() };
+
+  const rawNewGroupId = body && (body.newGroupId ?? body.groupId);
+  const newGroupId =
+    typeof rawNewGroupId === "string" && rawNewGroupId.trim() && rawNewGroupId.trim() !== groupId
+      ? rawNewGroupId.trim()
+      : null;
+  if (newGroupId) {
+    const canMove = await requireMember(newGroupId, userId);
+    if (!canMove) return forbidden("Not a member of the target group");
+  }
+
+  const item = { ...existing.Item };
   if (body.amount !== undefined && typeof body.amount === "number") {
     if (body.amount < 0) return badRequest("amount must be non-negative");
-    updates.push("amount = :a");
-    values[":a"] = body.amount;
+    item.amount = body.amount;
   }
   if (body.transactionType !== undefined || body.transaction_type !== undefined) {
     const raw = body.transactionType ?? body.transaction_type;
-    const tt = String(raw).toLowerCase().trim() === "credit" ? "credit" : "debit";
+    item.transactionType = String(raw).toLowerCase().trim() === "credit" ? "credit" : "debit";
+  }
+  if (body.categoryId !== undefined && typeof body.categoryId === "string") {
+    item.categoryId = body.categoryId.trim();
+  }
+  if (body.note !== undefined) {
+    item.note = body.note == null ? null : String(body.note);
+  }
+  if (body.paymentMode !== undefined) {
+    item.paymentMode = body.paymentMode == null ? "" : String(body.paymentMode);
+  }
+  item.updatedAt = now();
+
+  if (newGroupId) {
+    const moved = { ...item, groupId: newGroupId };
+    await doc.put({ TableName: TABLES.transactions, Item: moved }).promise();
+    await doc.delete({ TableName: TABLES.transactions, Key: { groupId, sk } }).promise();
+    return json(200, { transaction: moved });
+  }
+
+  const updates = [];
+  const names = {};
+  const values = { ":t": item.updatedAt };
+  if (body.amount !== undefined && typeof body.amount === "number") {
+    updates.push("amount = :a");
+    values[":a"] = item.amount;
+  }
+  if (body.transactionType !== undefined || body.transaction_type !== undefined) {
     updates.push("transactionType = :tt");
-    values[":tt"] = tt;
+    values[":tt"] = item.transactionType;
   }
   if (body.categoryId !== undefined && typeof body.categoryId === "string") {
     updates.push("categoryId = :c");
-    values[":c"] = body.categoryId.trim();
+    values[":c"] = item.categoryId;
   }
   if (body.note !== undefined) {
     updates.push("#note = :note");
     names["#note"] = "note";
-    values[":note"] = body.note == null ? null : String(body.note);
+    values[":note"] = item.note;
   }
   if (body.paymentMode !== undefined) {
     updates.push("#paymentMode = :pm");
     names["#paymentMode"] = "paymentMode";
-    values[":pm"] = body.paymentMode == null ? "" : String(body.paymentMode);
+    values[":pm"] = item.paymentMode;
   }
   if (updates.length === 0) return json(200, { transaction: existing.Item });
   updates.push("updatedAt = :t");
-  await doc.update({
+  const updateParams = {
     TableName: TABLES.transactions,
     Key: { groupId, sk },
     UpdateExpression: "SET " + updates.join(", "),
-    ExpressionAttributeNames: names,
     ExpressionAttributeValues: values,
-  }).promise();
+  };
+  if (Object.keys(names).length) updateParams.ExpressionAttributeNames = names;
+  await doc.update(updateParams).promise();
   const out = await doc.get({ TableName: TABLES.transactions, Key: { groupId, sk } }).promise();
   return json(200, { transaction: out.Item });
 }

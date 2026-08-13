@@ -63,7 +63,7 @@ const inputClassFull =
 const ALL_GROUPS_ID = "__all_groups__";
 
 export default function Transactions() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState(ALL_GROUPS_ID);
@@ -83,7 +83,14 @@ export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState("__all__");
   const [exporting, setExporting] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [editForm, setEditForm] = useState({ amount: "", transactionType: "debit", categoryId: "", paymentMode: "", note: "" });
+  const [editForm, setEditForm] = useState({
+    groupId: "",
+    amount: "",
+    transactionType: "debit",
+    categoryId: "",
+    paymentMode: "",
+    note: "",
+  });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState(null);
@@ -253,8 +260,10 @@ export default function Transactions() {
   }
 
   function openEdit(t) {
+    const txGroupId = t.groupId || (groupId !== ALL_GROUPS_ID ? groupId : "");
     setEditingTransaction(t);
     setEditForm({
+      groupId: txGroupId,
       amount: String(t.amount ?? ""),
       transactionType: getTransactionType(t) === "credit" ? "credit" : "debit",
       categoryId: t.categoryId || "",
@@ -306,10 +315,14 @@ export default function Transactions() {
 
   async function handleEditSubmit(e) {
     e.preventDefault();
-    const targetGroupId =
+    const sourceGroupId =
       editingTransaction?.groupId ||
       (groupId !== ALL_GROUPS_ID ? groupId : null);
-    if (!editingTransaction || !targetGroupId) return;
+    if (!editingTransaction || !sourceGroupId) return;
+    if (!editForm.groupId) {
+      setEditError("Group is required.");
+      return;
+    }
     const num = parseFloat(editForm.amount, 10);
     if (Number.isNaN(num) || num < 0) {
       setEditError("Amount must be a non-negative number.");
@@ -321,8 +334,10 @@ export default function Transactions() {
     }
     setEditSaving(true);
     setEditError(null);
+    const nextGroupId = editForm.groupId;
+    const moved = nextGroupId !== sourceGroupId;
     try {
-      await api(() => token, `/groups/${targetGroupId}/transactions/${editingTransaction.transactionId}`, {
+      const data = await api(() => token, `/groups/${sourceGroupId}/transactions/${editingTransaction.transactionId}`, {
         method: "PATCH",
         body: JSON.stringify({
           date: editingTransaction.date,
@@ -331,13 +346,25 @@ export default function Transactions() {
           categoryId: editForm.categoryId.trim(),
           paymentMode: editForm.paymentMode.trim() || "",
           note: editForm.note.trim() || undefined,
+          ...(moved ? { newGroupId: nextGroupId } : {}),
         }),
       });
-      setTransactions((prev) =>
-        prev.map((tx) =>
-          tx.transactionId === editingTransaction.transactionId && tx.date === editingTransaction.date
+      const updated = data?.transaction || {};
+      const nextGroupName = groupIdToName[nextGroupId] || editingTransaction.groupName;
+      setTransactions((prev) => {
+        const match = (tx) =>
+          tx.transactionId === editingTransaction.transactionId && tx.date === editingTransaction.date;
+        // If viewing a single group and the tx moved away, drop it from the list.
+        if (groupId !== ALL_GROUPS_ID && moved && nextGroupId !== groupId) {
+          return prev.filter((tx) => !match(tx));
+        }
+        return prev.map((tx) =>
+          match(tx)
             ? {
                 ...tx,
+                ...updated,
+                groupId: nextGroupId,
+                groupName: nextGroupName,
                 amount: num,
                 transactionType: editForm.transactionType,
                 categoryId: editForm.categoryId.trim(),
@@ -345,8 +372,8 @@ export default function Transactions() {
                 note: editForm.note.trim() || undefined,
               }
             : tx
-        )
-      );
+        );
+      });
       closeEdit();
     } catch (err) {
       setEditError(err.message || "Update failed");
@@ -357,6 +384,10 @@ export default function Transactions() {
 
   async function handleExport(format) {
     if (!groupId) return;
+    if (groupId === ALL_GROUPS_ID) {
+      setError("Select a specific group to export. Export is not available for All groups.");
+      return;
+    }
     const { startDate: s, endDate: e } = exportStartEnd();
     if (!s || !e) return;
     setExporting(format);
@@ -522,13 +553,13 @@ export default function Transactions() {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>Date of entry</TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>Date of transaction</TableCell>
                         <TableCell>Group</TableCell>
                         <TableCell>Type</TableCell>
                         <TableCell>Amount (₹)</TableCell>
                         <TableCell>Payment mode</TableCell>
                         <TableCell>Category</TableCell>
                         <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>Note</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>Submitted by</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap", width: 90 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -539,6 +570,9 @@ export default function Transactions() {
                             {t.createdAt
                               ? new Date(t.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
                               : "—"}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
+                            {t.date || "—"}
                           </TableCell>
                           <TableCell>
                             {groupId === ALL_GROUPS_ID
@@ -560,9 +594,6 @@ export default function Transactions() {
                           <TableCell>{categoryIdToName[t.categoryId] ?? t.categoryId}</TableCell>
                           <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }} title={t.note ?? ""}>
                             {t.note ?? "—"}
-                          </TableCell>
-                          <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.75rem" }}>
-                            {t.userId === user?.sub ? "You" : t.userId ? `…${String(t.userId).slice(-8)}` : "—"}
                           </TableCell>
                           <TableCell>
                             <Button size="small" variant="outlined" onClick={() => openEdit(t)} aria-label="Edit transaction">
@@ -606,6 +637,19 @@ export default function Transactions() {
             )}
             {editingTransaction && (
               <>
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">Group</span>
+                  <select
+                    value={editForm.groupId}
+                    onChange={(e) => setEditForm((f) => ({ ...f, groupId: e.target.value }))}
+                    className={inputClassFull + " mt-1"}
+                    required
+                  >
+                    {(groups || []).map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="block">
                   <span className="text-sm font-medium text-foreground">Date (transaction date)</span>
                   <input
